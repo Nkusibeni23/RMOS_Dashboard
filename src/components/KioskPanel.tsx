@@ -5,18 +5,12 @@ import { sendCommand } from '@/lib/api';
 import type { CommandType } from '@/lib/types';
 import { useToast } from '@/components/Toast';
 import { friendlyCommand } from '@/lib/labels';
-import {
-  KioskIcon,
-  RebootIcon,
-  RefreshIcon,
-  ListIcon,
-  InstallIcon,
-} from '@/components/icons';
+import { RebootIcon, InstallIcon, RefreshIcon } from '@/components/icons';
 
 /**
- * Kiosk & fleet controls for the unified RMLauncher agent: lock the phone into approved apps,
- * toggle hardware/UI policies, push an app whitelist, and remotely install an APK. Each control is
- * fire-and-forget (the phone acks over MQTT); the command history below reflects the result.
+ * Remote device controls for the RMSoft OS background agent — the useful, non-kiosk actions:
+ * reboot, disable/enable the camera (security), remotely install an app, and push an OTA update.
+ * Each is fire-and-forget over MQTT; the command history below reflects the result.
  */
 export function KioskPanel({
   deviceId,
@@ -29,7 +23,6 @@ export function KioskPanel({
 }) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
-  const [whitelist, setWhitelist] = useState('');
   const [apkUrl, setApkUrl] = useState('');
   const [updateUrl, setUpdateUrl] = useState('');
 
@@ -50,49 +43,25 @@ export function KioskPanel({
   return (
     <section className="rounded-2xl border border-rm-line bg-rm-panel p-5 shadow-card">
       <div className="flex items-center gap-2 mb-1">
-        <h3 className="font-semibold text-rm-ink">Kiosk &amp; Apps</h3>
+        <h3 className="font-semibold text-rm-ink">Device controls</h3>
         <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-rm-green-soft text-rm-green-deep">
           Device Owner
         </span>
       </div>
       <p className="text-sm text-rm-slate mb-4">
-        Lock the phone to approved apps and manage the fleet remotely.
+        Remote actions on the device — all silent, no user prompt.
       </p>
 
-      {/* Kiosk mode */}
-      <Group label="Kiosk mode">
-        <Btn
-          label="Enter kiosk"
-          icon={<KioskIcon size={16} />}
-          busy={busy === 'enter'}
-          onClick={() => run('enter', 'ENTER_KIOSK')}
-          variant="primary"
-        />
-        <Btn
-          label="Exit kiosk"
-          busy={busy === 'exit'}
-          onClick={() => run('exit', 'EXIT_KIOSK')}
-        />
-      </Group>
-
-      {/* Maintenance */}
-      <Group label="Maintenance">
+      <Group label="Power">
         <Btn
           label="Reboot"
           icon={<RebootIcon size={16} />}
           busy={busy === 'reboot'}
           onClick={() => run('reboot', 'REBOOT')}
         />
-        <Btn
-          label="Re-apply policies"
-          icon={<RefreshIcon size={16} />}
-          busy={busy === 'reapply'}
-          onClick={() => run('reapply', 'REAPPLY_POLICIES')}
-        />
       </Group>
 
-      {/* Policy toggles */}
-      <Group label="Hardware & UI policies">
+      <Group label="Camera">
         <Toggle
           label="Camera"
           onLabel="Enabled"
@@ -101,55 +70,8 @@ export function KioskPanel({
           onOn={() => run('cam-on', 'SET_CAMERA_DISABLED', { disabled: false })}
           onOff={() => run('cam-off', 'SET_CAMERA_DISABLED', { disabled: true })}
         />
-        <Toggle
-          label="Status bar"
-          onLabel="Shown"
-          offLabel="Hidden"
-          busy={busy?.startsWith('sb') ?? false}
-          onOn={() => run('sb-on', 'SET_STATUS_BAR_DISABLED', { disabled: false })}
-          onOff={() => run('sb-off', 'SET_STATUS_BAR_DISABLED', { disabled: true })}
-        />
-        <Toggle
-          label="Keyguard (lock screen)"
-          onLabel="On"
-          offLabel="Off"
-          busy={busy?.startsWith('kg') ?? false}
-          onOn={() => run('kg-on', 'SET_KEYGUARD_DISABLED', { disabled: false })}
-          onOff={() => run('kg-off', 'SET_KEYGUARD_DISABLED', { disabled: true })}
-        />
       </Group>
 
-      {/* App whitelist */}
-      <Group label="App whitelist" stack>
-        <p className="text-xs text-rm-slate">
-          One package name per line. Only these (plus core stock apps) stay visible in the kiosk.
-        </p>
-        <textarea
-          className="input font-mono text-xs h-24 resize-y"
-          placeholder={'com.android.chrome\ncom.rmsoft.mail'}
-          value={whitelist}
-          onChange={(e) => setWhitelist(e.target.value)}
-        />
-        <div className="flex justify-end">
-          <Btn
-            label="Apply whitelist"
-            icon={<ListIcon size={16} />}
-            busy={busy === 'wl'}
-            disabled={whitelist.trim().length === 0}
-            variant="primary"
-            onClick={() =>
-              run('wl', 'SET_WHITELIST', {
-                packages: whitelist
-                  .split('\n')
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-              })
-            }
-          />
-        </div>
-      </Group>
-
-      {/* Remote install */}
       <Group label="Install app (APK URL)" stack>
         <div className="flex gap-2">
           <input
@@ -169,10 +91,9 @@ export function KioskPanel({
         </div>
       </Group>
 
-      {/* OTA — push a newer build of an installed app / the agent itself */}
       <Group label="Push update — OTA (APK URL)" stack>
         <p className="text-xs text-rm-slate">
-          Upgrades an existing app in place (same signature) — e.g. a new RMSoft agent build.
+          Upgrades an installed app in place (same signature) — e.g. a new RMSoft agent build.
         </p>
         <div className="flex gap-2">
           <input
