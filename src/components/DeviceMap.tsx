@@ -41,6 +41,8 @@ export default function DeviceMap({ locations }: { locations: LocationPing[] }) 
   const markersRef = useRef<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const infoRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const circleRef = useRef<any>(null);
 
   useEffect(() => {
     if (!KEY || !locations || locations.length === 0) return;
@@ -57,15 +59,41 @@ export default function DeviceMap({ locations }: { locations: LocationPing[] }) 
         if (!mapRef.current) {
           mapRef.current = new g.maps.Map(ref.current, {
             center,
-            zoom: 15,
-            mapTypeControl: false,
+            zoom: 17,
+            // Hybrid = satellite imagery WITH street + place labels (best of both). Users can switch
+            // to plain map / satellite via the type control.
+            mapTypeId: g.maps.MapTypeId.HYBRID,
+            mapTypeControl: true,
+            mapTypeControlOptions: {
+              style: g.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+              position: g.maps.ControlPosition.TOP_RIGHT,
+              mapTypeIds: ['roadmap', 'satellite', 'hybrid'],
+            },
             streetViewControl: false,
             fullscreenControl: true,
-            styles: MAP_STYLE,
+            zoomControl: true,
+            gestureHandling: 'greedy',
+            styles: MAP_STYLE, // applies to the roadmap view only
           });
           infoRef.current = new g.maps.InfoWindow();
         } else {
           mapRef.current.panTo(center);
+        }
+
+        // Accuracy ring around the latest fix — shows how precise the position is (network fixes are
+        // coarser than GPS, so this makes the difference legible at a glance).
+        if (circleRef.current) circleRef.current.setMap(null);
+        if (typeof latest.accuracyM === 'number' && latest.accuracyM > 0) {
+          circleRef.current = new g.maps.Circle({
+            map: mapRef.current,
+            center,
+            radius: latest.accuracyM,
+            strokeColor: '#12A85E',
+            strokeOpacity: 0.7,
+            strokeWeight: 1.5,
+            fillColor: '#12A85E',
+            fillOpacity: 0.12,
+          });
         }
 
         // Redraw markers (latest emphasized in RMSoft green).
