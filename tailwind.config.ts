@@ -37,9 +37,10 @@ const config: Config = {
           ok: '#12A85E',
         },
       },
+      // Flat design — no drop shadows. Cards read via border + panel background only.
       boxShadow: {
-        card: '0 1px 2px rgba(12,22,19,0.04), 0 6px 20px rgba(12,22,19,0.06)',
-        'card-hover': '0 2px 6px rgba(12,22,19,0.06), 0 16px 40px rgba(12,22,19,0.12)',
+        card: 'none',
+        'card-hover': 'none',
       },
     },
   },

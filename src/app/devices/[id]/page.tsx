@@ -356,7 +356,7 @@ export default function DeviceDetailPage() {
             />
           </Field>
 
-          <Field label="Owner name — shows on the lock screen">
+          <Field label="Owner name shows on the lock screen">
             <div className="flex gap-2">
               <input
                 className={inputCls}
