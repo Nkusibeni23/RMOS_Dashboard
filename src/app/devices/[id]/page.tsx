@@ -9,6 +9,7 @@ import {
   getToken,
   markFound,
   sendCommand,
+  clearQueue,
 } from "@/lib/api";
 import type { CommandStatus, CommandType, Device } from "@/lib/types";
 import { TopBar } from "@/components/TopBar";
@@ -17,6 +18,7 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { KioskPanel } from "@/components/KioskPanel";
 import { DeviceTelemetry } from "@/components/DeviceTelemetry";
 import { useToast } from "@/components/Toast";
+import { usePolling } from "@/lib/usePolling";
 import { friendlyCommand } from "@/lib/labels";
 import {
   LocateIcon,
@@ -48,11 +50,16 @@ export default function DeviceDetailPage() {
   );
   const [ownerName, setOwnerName] = useState("");
   const [wipe, setWipe] = useState<{ everything: boolean } | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   // Track command status across polls so we can toast the moment a command is
   // acknowledged or fails on the phone — the "Sent → Acked ✓" feedback loop.
   const seenStatus = useRef<Map<string, CommandStatus>>(new Map());
   const seeded = useRef(false);
+  const locateBaseline = useRef<string | null>(null);
+  const locateStart = useRef<number>(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -72,9 +79,8 @@ export default function DeviceDetailPage() {
       return;
     }
     refresh();
-    const t = setInterval(refresh, 5000);
-    return () => clearInterval(t);
   }, [refresh, router]);
+  usePolling(refresh, 5000);
 
   // Watch for commands flipping to ACKED / FAILED between polls and toast the result.
   useEffect(() => {
@@ -98,6 +104,22 @@ export default function DeviceDetailPage() {
     seeded.current = true;
   }, [device, toast]);
 
+  // Resolve the "Locating…" state: clear it when a fresh location arrives, or time out after 35s.
+  useEffect(() => {
+    if (!locating) return;
+    const newest = device?.locations?.[0];
+    if (newest && newest.id !== locateBaseline.current) {
+      setLocating(false);
+      const acc = newest.accuracyM ? ` · ±${Math.round(newest.accuracyM)}m` : "";
+      toast.success(`📍 Fresh location${acc}`);
+      return;
+    }
+    if (locateStart.current && Date.now() - locateStart.current > 35000) {
+      setLocating(false);
+      toast.error("No fresh fix yet — the phone may be offline or indoors");
+    }
+  }, [locating, device, toast]);
+
   async function issue(type: CommandType, payload?: Record<string, unknown>) {
     if (!device) return;
     setBusy(type);
@@ -112,6 +134,24 @@ export default function DeviceDetailPage() {
       setError(String(e));
     } finally {
       setBusy(null);
+    }
+  }
+
+  // Locate is special: the button stays in "Locating…" until a genuinely FRESH fix lands (detected
+  // in the effect below), not just until the command is sent — so you know it actually worked.
+  async function locate() {
+    if (!device) return;
+    locateBaseline.current = device.locations?.[0]?.id ?? null;
+    locateStart.current = Date.now();
+    setLocating(true);
+    try {
+      await sendCommand(device.id, "LOCATE_NOW");
+      toast.success("Locating… waiting for a fresh fix");
+      await refresh();
+    } catch (e) {
+      toast.error("Couldn't send Locate");
+      setError(String(e));
+      setLocating(false);
     }
   }
 
@@ -161,6 +201,25 @@ export default function DeviceDetailPage() {
     (c) => !c.ackedAt && (c.status === "PENDING" || c.status === "SENT"),
   );
 
+  async function handleClearQueue() {
+    setClearing(true);
+    try {
+      const { cleared } = await clearQueue(id);
+      toast.success(
+        cleared
+          ? `Cleared ${cleared} queued command${cleared > 1 ? "s" : ""}`
+          : "Queue was already empty",
+      );
+      await refresh();
+      setConfirmClear(false);
+    } catch (e) {
+      toast.error("Couldn't clear the queue");
+      setError(String(e));
+    } finally {
+      setClearing(false);
+    }
+  }
+
   return (
     <>
       <TopBar />
@@ -203,29 +262,57 @@ export default function DeviceDetailPage() {
 
         {/* Offline command queue */}
         {!online && queued.length > 0 && (
-          <div className="flex items-center gap-3 rounded-2xl border border-rm-warn/30 bg-rm-warn-soft p-4">
-            <span className="shrink-0 grid place-items-center w-9 h-9 rounded-lg bg-white text-rm-warn">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          <div className="rounded-2xl border border-rm-warn/30 bg-rm-warn-soft p-4">
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 grid place-items-center w-9 h-9 rounded-lg bg-white text-rm-warn">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 8v4l3 2" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-rm-warn">
+                  <span className="font-semibold">
+                    {queued.length} command{queued.length > 1 ? "s" : ""} waiting
+                  </span>{" "}
+                  — the phone is offline. {queued.length > 1 ? "They" : "It"}{" "}
+                  deliver automatically when it reconnects.
+                </p>
+              </div>
+              <button
+                onClick={() => setConfirmClear(true)}
+                disabled={clearing}
+                className="shrink-0 self-start px-3 py-1.5 rounded-lg border border-rm-warn/40 text-rm-warn text-xs font-medium hover:bg-white/60 transition disabled:opacity-50"
               >
-                <path d="M12 8v4l3 2" />
-                <circle cx="12" cy="12" r="9" />
-              </svg>
-            </span>
-            <p className="text-sm text-rm-warn">
-              <span className="font-semibold">
-                {queued.length} command{queued.length > 1 ? "s" : ""} queued
-              </span>{" "}
-              — the phone is offline. {queued.length > 1 ? "They" : "It"} will
-              deliver automatically the moment it reconnects.
-            </p>
+                {clearing ? "Clearing…" : "Clear queue"}
+              </button>
+            </div>
+
+            {/* What's actually queued — command + when it was sent */}
+            <ul className="mt-3 space-y-1 border-t border-rm-warn/20 pt-3">
+              {queued.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between gap-3 text-xs"
+                >
+                  <span className="font-medium text-rm-warn">
+                    {friendlyCommand(c.type)}
+                  </span>
+                  <span className="text-rm-warn/70 tabular-nums shrink-0">
+                    {new Date(c.sentAt ?? c.createdAt).toLocaleString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -286,7 +373,26 @@ export default function DeviceDetailPage() {
 
         {/* Map */}
         <section className="rounded-2xl border border-rm-line bg-rm-panel p-5 shadow-card">
-          <h3 className="font-semibold text-rm-fog mb-3">Location</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-rm-fog">Location</h3>
+            {locating ? (
+              <span className="flex items-center gap-2 text-xs font-medium text-rm-green">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-rm-green opacity-75 animate-ping" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-rm-green" />
+                </span>
+                Locating…
+              </span>
+            ) : device.locations?.[0] ? (
+              <span className="text-xs text-rm-slate">
+                Updated{" "}
+                {new Date(device.locations[0].reportedAt).toLocaleTimeString()}
+                {device.locations[0].source
+                  ? ` · ${device.locations[0].source}`
+                  : ""}
+              </span>
+            ) : null}
+          </div>
           <DeviceMap locations={device.locations ?? []} />
         </section>
 
@@ -295,11 +401,11 @@ export default function DeviceDetailPage() {
           <h3 className="font-semibold text-rm-fog mb-4">Actions</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <ActionButton
-              label="Locate now"
+              label={locating ? "Locating…" : "Locate now"}
               hint="Force fresh GPS ping"
               icon={<LocateIcon />}
-              onClick={() => issue("LOCATE_NOW")}
-              busy={busy === "LOCATE_NOW"}
+              onClick={locate}
+              busy={locating}
             />
             <ActionButton
               label="Ring loud"
@@ -443,6 +549,27 @@ export default function DeviceDetailPage() {
             : "all user data on internal storage."}
         </p>
         <p className="text-rm-danger font-medium">This cannot be undone.</p>
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={confirmClear}
+        title="Clear the command queue?"
+        danger
+        confirmLabel="Clear queue"
+        busy={clearing}
+        onCancel={() => setConfirmClear(false)}
+        onConfirm={handleClearQueue}
+      >
+        <p>
+          Cancel{" "}
+          <span className="font-medium text-rm-fog">{queued.length}</span>{" "}
+          undelivered command{queued.length === 1 ? "" : "s"} waiting for this
+          device.
+        </p>
+        <p className="text-rm-slate">
+          They will never reach the phone. Completed history (acked / failed) is
+          kept. This can’t be undone.
+        </p>
       </ConfirmModal>
     </>
   );
