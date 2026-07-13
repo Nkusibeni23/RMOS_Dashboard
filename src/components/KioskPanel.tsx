@@ -36,14 +36,18 @@ export function KioskPanel({
   const [uploadPct, setUploadPct] = useState(0);
   const [uploadName, setUploadName] = useState("");
   const [apks, setApks] = useState<UploadedApk[]>([]);
+  const [apksLoading, setApksLoading] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<UploadedApk | null>(null);
 
   // The uploaded-APK library (history). Best-effort — a load failure just shows an empty list.
+  // apksLoading gates the skeleton so we never flash "nothing uploaded" before the fetch lands.
   const loadApks = useCallback(async () => {
     try {
       setApks(await listApks());
     } catch {
       /* ignore */
+    } finally {
+      setApksLoading(false);
     }
   }, []);
 
@@ -269,7 +273,26 @@ export function KioskPanel({
           Every APK you’ve uploaded. Re-install or push-update any of them to
           this device no re-upload needed.
         </p>
-        {apks.length === 0 ? (
+        {apksLoading ? (
+          <ul className="space-y-2">
+            {[0, 1].map((i) => (
+              <li
+                key={i}
+                className="flex items-center justify-between gap-2 rounded-lg border border-rm-line px-3 py-2 animate-pulse"
+              >
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="h-3.5 w-40 max-w-full rounded bg-rm-line" />
+                  <div className="h-2.5 w-24 rounded bg-rm-line" />
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <div className="h-6 w-14 rounded-md bg-rm-line" />
+                  <div className="h-6 w-14 rounded-md bg-rm-line" />
+                  <div className="h-6 w-14 rounded-md bg-rm-line" />
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : apks.length === 0 ? (
           <p className="text-xs text-rm-slate italic">
             Nothing uploaded yet use “Upload APK” above and it shows up here.
           </p>

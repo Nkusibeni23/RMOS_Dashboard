@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export function ConfirmModal({
   open,
@@ -40,7 +41,7 @@ export function ConfirmModal({
   if (!open) return null;
   const locked = requireText ? text.trim() !== requireText : false;
 
-  return (
+  const modal = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onCancel}
@@ -94,4 +95,8 @@ export function ConfirmModal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modal, document.body)
+    : modal;
 }
