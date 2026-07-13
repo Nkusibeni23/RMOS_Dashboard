@@ -98,23 +98,48 @@ export function deleteDevice(id: string) {
 
 export type UploadedApk = { filename: string; size: number; url: string; uploadedAt?: string };
 
-/** Upload an APK file to the server → returns a public download URL to push via INSTALL_APK. */
-export async function uploadApk(file: File): Promise<UploadedApk> {
+/**
+ * Upload an APK file to the server → returns a public download URL to push via INSTALL_APK.
+ * Uses XMLHttpRequest (not fetch) so we can report live upload progress — APKs are large (Cromite
+ * is ~100 MB) and a static "Uploading…" with no feedback is a poor experience. [onProgress] is
+ * called with 0–100 as the bytes go up.
+ */
+export function uploadApk(
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<UploadedApk> {
   const token = getToken();
   const form = new FormData();
   form.append('apk', file);
-  // NOTE: do NOT set content-type — the browser adds the multipart boundary itself.
-  const res = await fetch(`${BASE}/api/apks/upload`, {
-    method: 'POST',
-    headers: { ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: form,
+  return new Promise<UploadedApk>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${BASE}/api/apks/upload`);
+    if (token) xhr.setRequestHeader('authorization', `Bearer ${token}`);
+    // NOTE: do NOT set content-type — the browser adds the multipart boundary itself.
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as UploadedApk);
+        } catch {
+          reject(new ApiError(xhr.status, xhr.responseText));
+        }
+      } else {
+        let detail: unknown = xhr.responseText;
+        try {
+          detail = JSON.parse(xhr.responseText);
+        } catch {
+          /* keep raw text */
+        }
+        reject(new ApiError(xhr.status, detail));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, 'network error during upload'));
+    xhr.ontimeout = () => reject(new ApiError(0, 'upload timed out'));
+    xhr.send(form);
   });
-  if (!res.ok) {
-    let detail: unknown;
-    try { detail = await res.json(); } catch { detail = await res.text(); }
-    throw new ApiError(res.status, detail);
-  }
-  return res.json() as Promise<UploadedApk>;
 }
 
 export function listApks() {

@@ -50,7 +50,6 @@ export function ConfirmModal({
         className="relative w-full max-w-md rounded-2xl border border-rm-line bg-rm-panel shadow-card-hover overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={`h-1 ${danger ? 'bg-rm-danger' : 'bg-rm-green'}`} />
         <div className="p-6">
           <h3 className="text-lg font-semibold text-rm-fog">{title}</h3>
           <div className="mt-2 text-sm text-rm-graphite space-y-2">{children}</div>

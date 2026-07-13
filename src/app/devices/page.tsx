@@ -8,6 +8,7 @@ import type { Device } from '@/lib/types';
 import { TopBar } from '@/components/TopBar';
 import { StatusPill } from '@/components/StatusPill';
 import { useToast } from '@/components/Toast';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 function isOnline(d: Device) {
   return !!d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < 120_000;
@@ -18,6 +19,8 @@ export default function DevicesPage() {
   const toast = useToast();
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<Device | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const load = useCallback(
     () =>
@@ -43,22 +46,27 @@ export default function DevicesPage() {
     return () => clearInterval(t);
   }, [router, load]);
 
-  async function remove(e: React.MouseEvent, d: Device) {
+  // Opens the confirmation modal (replaces the ugly browser confirm()).
+  function askRemove(e: React.MouseEvent, d: Device) {
     e.preventDefault();
     e.stopPropagation();
-    if (
-      !confirm(
-        `Remove "${d.model ?? 'device'}" (${d.serialNumber.slice(0, 14)}…)?\nThis only removes the dashboard record.`,
-      )
-    )
-      return;
+    setPendingRemove(d);
+  }
+
+  async function confirmRemove() {
+    const d = pendingRemove;
+    if (!d) return;
+    setRemoving(true);
     try {
       await deleteDevice(d.id);
       toast.success(`Removed ${d.model ?? 'device'}`);
+      setPendingRemove(null);
       await load();
     } catch (err) {
       toast.error('Could not remove device');
       setError(String(err));
+    } finally {
+      setRemoving(false);
     }
   }
 
@@ -121,7 +129,7 @@ export default function DevicesPage() {
                 className="group relative card p-5 transition duration-200 hover:border-rm-green/40 hover:-translate-y-0.5 hover:shadow-card-hover"
               >
                 <button
-                  onClick={(e) => remove(e, d)}
+                  onClick={(e) => askRemove(e, d)}
                   title="Remove device"
                   className="absolute top-2.5 right-2.5 w-7 h-7 grid place-items-center rounded-lg text-rm-slate hover:text-rm-danger hover:bg-rm-danger-soft transition opacity-0 group-hover:opacity-100"
                 >
@@ -175,6 +183,31 @@ export default function DevicesPage() {
           </div>
         )}
       </main>
+
+      <ConfirmModal
+        open={pendingRemove !== null}
+        danger
+        title="Remove this device?"
+        confirmLabel="Remove"
+        busy={removing}
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingRemove(null)}
+      >
+        <p>
+          Remove{' '}
+          <span className="font-medium text-rm-fog">
+            {pendingRemove?.model ?? 'this device'}
+          </span>{' '}
+          <span className="font-mono text-xs text-rm-graphite">
+            ({pendingRemove?.serialNumber})
+          </span>{' '}
+          from the dashboard.
+        </p>
+        <p className="text-rm-slate">
+          This only removes the dashboard record. It does not wipe or unlock the phone. If the
+          device is still active, it will re-enroll and reappear on its next check-in.
+        </p>
+      </ConfirmModal>
     </>
   );
 }
