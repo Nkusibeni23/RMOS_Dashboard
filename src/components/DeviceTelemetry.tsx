@@ -10,9 +10,6 @@ export function DeviceTelemetry({ device }: { device: Device }) {
   return (
     <div className="flex flex-wrap items-center gap-2 mt-3">
       {device.batteryLevel != null && <Battery level={device.batteryLevel} />}
-      {device.kioskActive != null && (
-        <StatePill label={device.kioskActive ? 'Kiosk on' : 'Kiosk off'} good={device.kioskActive} />
-      )}
       {device.cameraDisabled != null && (
         <StatePill
           label={device.cameraDisabled ? 'Camera off' : 'Camera on'}
