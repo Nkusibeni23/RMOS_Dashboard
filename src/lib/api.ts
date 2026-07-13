@@ -95,3 +95,32 @@ export function markFound(id: string) {
 export function deleteDevice(id: string) {
   return call<void>(`/api/devices/${id}`, { method: 'DELETE' });
 }
+
+export type UploadedApk = { filename: string; size: number; url: string; uploadedAt?: string };
+
+/** Upload an APK file to the server → returns a public download URL to push via INSTALL_APK. */
+export async function uploadApk(file: File): Promise<UploadedApk> {
+  const token = getToken();
+  const form = new FormData();
+  form.append('apk', file);
+  // NOTE: do NOT set content-type — the browser adds the multipart boundary itself.
+  const res = await fetch(`${BASE}/api/apks/upload`, {
+    method: 'POST',
+    headers: { ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    body: form,
+  });
+  if (!res.ok) {
+    let detail: unknown;
+    try { detail = await res.json(); } catch { detail = await res.text(); }
+    throw new ApiError(res.status, detail);
+  }
+  return res.json() as Promise<UploadedApk>;
+}
+
+export function listApks() {
+  return call<UploadedApk[]>('/api/apks');
+}
+
+export function deleteApk(filename: string) {
+  return call<{ ok: boolean }>(`/api/apks/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { sendCommand } from '@/lib/api';
+import { sendCommand, uploadApk } from '@/lib/api';
 import type { CommandType } from '@/lib/types';
 import { useToast } from '@/components/Toast';
 import { friendlyCommand } from '@/lib/labels';
@@ -40,6 +40,26 @@ export function KioskPanel({
     }
   }
 
+  // Upload an APK file → the server hosts it → push INSTALL_APK with that URL. One click = installed.
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be re-picked later
+    if (!file) return;
+    setBusy('upload');
+    try {
+      const { url } = await uploadApk(file);
+      setApkUrl(url);
+      await sendCommand(deviceId, 'INSTALL_APK', { url });
+      toast.success(`${file.name} uploaded — installing on the device`);
+      onDone?.();
+    } catch (err) {
+      toast.error("Upload failed — check the file is a valid .apk");
+      onError?.(String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <section className="rounded-2xl border border-rm-line bg-rm-panel p-5 shadow-card">
       <div className="flex items-center gap-2 mb-1">
@@ -72,7 +92,27 @@ export function KioskPanel({
         />
       </Group>
 
-      <Group label="Install app (APK URL)" stack>
+      <Group label="Install app" stack>
+        <p className="text-xs text-rm-slate">
+          Upload an APK — it uploads, then installs silently on the device.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <label
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium cursor-pointer transition bg-rm-green text-white hover:bg-rm-green-deep ${
+              busy === 'upload' ? 'opacity-40 pointer-events-none' : ''
+            }`}
+          >
+            <InstallIcon size={16} />
+            {busy === 'upload' ? 'Uploading…' : 'Upload APK'}
+            <input
+              type="file"
+              accept=".apk,application/vnd.android.package-archive"
+              className="hidden"
+              onChange={handleUpload}
+            />
+          </label>
+          <span className="text-xs text-rm-slate">or paste a direct URL:</span>
+        </div>
         <div className="flex gap-2">
           <input
             className="input"
