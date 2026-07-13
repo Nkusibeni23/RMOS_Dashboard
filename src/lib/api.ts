@@ -88,6 +88,11 @@ export function sendCommand(
   });
 }
 
+/** Clear the pending/undelivered command queue (keeps completed ACKED/FAILED history). */
+export function clearQueue(id: string) {
+  return call<{ cleared: number }>(`/api/devices/${id}/commands`, { method: 'DELETE' });
+}
+
 export function markFound(id: string) {
   return call<Device>(`/api/devices/${id}/mark-found`, { method: 'POST' });
 }

@@ -9,6 +9,7 @@ import { TopBar } from "@/components/TopBar";
 import { StatusPill } from "@/components/StatusPill";
 import { useToast } from "@/components/Toast";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { usePolling } from "@/lib/usePolling";
 
 function isOnline(d: Device) {
   return (
@@ -44,9 +45,8 @@ export default function DevicesPage() {
       return;
     }
     load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
   }, [router, load]);
+  usePolling(load, 5000);
 
   // Opens the confirmation modal (replaces the ugly browser confirm()).
   function askRemove(e: React.MouseEvent, d: Device) {
