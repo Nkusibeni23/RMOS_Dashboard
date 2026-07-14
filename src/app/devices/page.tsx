@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, deleteDevice, getToken, listDevices, listOwners } from "@/lib/api";
+import {
+  ApiError,
+  deleteDevice,
+  getToken,
+  listDevices,
+  listOwners,
+} from "@/lib/api";
 import type { Device, Owner } from "@/lib/types";
 import { TopBar } from "@/components/TopBar";
 import { StatusPill } from "@/components/StatusPill";
@@ -11,6 +17,13 @@ import { useToast } from "@/components/Toast";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { Select } from "@/components/Select";
 import { usePolling } from "@/lib/usePolling";
+import {
+  OrgIcon,
+  PersonIcon,
+  AlertIcon,
+  XIcon,
+  PhoneIcon,
+} from "@/components/icons";
 
 function isOnline(d: Device) {
   return (
@@ -48,7 +61,9 @@ export default function DevicesPage() {
       return;
     }
     load();
-    listOwners().then(setOwners).catch(() => {});
+    listOwners()
+      .then(setOwners)
+      .catch(() => {});
     // Deep-link: /devices?owner=<id> (or "unassigned") pre-selects the filter, so a client card
     // on the Clients page can jump straight to that client's phones.
     const owner = new URLSearchParams(window.location.search).get("owner");
@@ -56,7 +71,8 @@ export default function DevicesPage() {
   }, [router, load]);
   usePolling(load, 5000);
 
-  const unassignedCount = devices?.filter((d) => !d.assignedOwnerId).length ?? 0;
+  const unassignedCount =
+    devices?.filter((d) => !d.assignedOwnerId).length ?? 0;
   const shown = (devices ?? []).filter((d) =>
     filterOwner === "all"
       ? true
@@ -131,10 +147,20 @@ export default function DevicesPage() {
               className="min-w-[220px]"
               options={[
                 { value: "all", label: `All devices (${devices.length})` },
-                { value: "unassigned", label: `⚠ Unassigned (${unassignedCount})` },
+                {
+                  value: "unassigned",
+                  label: `Unassigned (${unassignedCount})`,
+                  icon: <AlertIcon size={15} />,
+                },
                 ...owners.map((o) => ({
                   value: o.id,
-                  label: `${o.type === "ORGANIZATION" ? "🏢" : "👤"} ${o.name}`,
+                  label: o.name,
+                  icon:
+                    o.type === "ORGANIZATION" ? (
+                      <OrgIcon size={15} />
+                    ) : (
+                      <PersonIcon size={15} />
+                    ),
                 })),
               ]}
             />
@@ -160,8 +186,8 @@ export default function DevicesPage() {
           </div>
         ) : devices.length === 0 ? (
           <div className="card p-12 text-center">
-            <div className="mx-auto mb-4 grid place-items-center w-12 h-12 rounded-full bg-rm-green/10 text-rm-green text-xl">
-              ⌾
+            <div className="mx-auto mb-4 grid place-items-center w-12 h-12 rounded-full bg-rm-green/10 text-rm-green">
+              <PhoneIcon size={22} />
             </div>
             <p className="text-rm-fog font-medium mb-1">
               No devices enrolled yet
@@ -187,7 +213,7 @@ export default function DevicesPage() {
                   title="Remove device"
                   className="absolute top-2.5 right-2.5 w-7 h-7 grid place-items-center rounded-lg text-rm-slate hover:text-rm-danger hover:bg-rm-danger-soft transition opacity-0 group-hover:opacity-100"
                 >
-                  ✕
+                  <XIcon size={15} />
                 </button>
                 <div className="flex items-start justify-between gap-3 pr-7">
                   <div className="min-w-0">
@@ -201,8 +227,8 @@ export default function DevicesPage() {
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <StatusPill status={d.status} />
                     {d.lastAlertType && (
-                      <span className="text-[10px] font-semibold text-rm-danger">
-                        ⚠{" "}
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-rm-danger">
+                        <AlertIcon size={12} />
                         {d.lastAlertType === "SIM_SWAP" ? "SIM swap" : "Alert"}
                       </span>
                     )}
@@ -234,12 +260,19 @@ export default function DevicesPage() {
 
                 <div className="mt-3 pt-3 border-t border-rm-line text-xs truncate">
                   {d.assignedOwner ? (
-                    <span className="text-rm-graphite">
-                      {d.assignedOwner.type === "ORGANIZATION" ? "🏢" : "👤"}{" "}
-                      {d.assignedOwner.name}
+                    <span className="flex items-center gap-1.5 text-rm-graphite">
+                      {d.assignedOwner.type === "ORGANIZATION" ? (
+                        <OrgIcon size={13} />
+                      ) : (
+                        <PersonIcon size={13} />
+                      )}
+                      <span className="truncate">{d.assignedOwner.name}</span>
                     </span>
                   ) : (
-                    <span className="text-rm-warn">⚠ Unassigned</span>
+                    <span className="flex items-center gap-1.5 text-rm-warn">
+                      <AlertIcon size={13} />
+                      Unassigned
+                    </span>
                   )}
                 </div>
               </Link>

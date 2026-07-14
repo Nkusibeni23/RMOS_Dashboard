@@ -32,6 +32,7 @@ import {
   WipeIcon,
   OrgIcon,
   PersonIcon,
+  AlertIcon,
 } from "@/components/icons";
 
 const DeviceMap = dynamic(() => import("@/components/DeviceMap"), {
@@ -133,7 +134,7 @@ export default function DeviceDetailPage() {
       const acc = newest.accuracyM
         ? ` · ±${Math.round(newest.accuracyM)}m`
         : "";
-      toast.success(`📍 Fresh location${acc}`);
+      toast.success(`Fresh location${acc}`);
       return;
     }
     if (locateStart.current && Date.now() - locateStart.current > 35000) {
@@ -402,7 +403,10 @@ export default function DeviceDetailPage() {
                 <span className="truncate">{device.assignedOwner.name}</span>
               </span>
             ) : (
-              <span className="font-medium text-rm-warn">⚠ Unassigned</span>
+              <span className="flex items-center gap-1.5 font-medium text-rm-warn">
+                <AlertIcon size={15} />
+                Unassigned
+              </span>
             )}
             {device.assignedOwner && (
               <span className="text-xs text-rm-graphite hidden sm:inline">

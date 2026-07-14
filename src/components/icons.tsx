@@ -115,3 +115,23 @@ export const PersonIcon = (p: P) => (
     <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
   </S>
 );
+
+export const AlertIcon = (p: P) => (
+  <S {...p}>
+    <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+    <path d="M12 9v4M12 17h.01" />
+  </S>
+);
+
+export const XIcon = (p: P) => (
+  <S {...p}>
+    <path d="M18 6 6 18M6 6l12 12" />
+  </S>
+);
+
+export const PhoneIcon = (p: P) => (
+  <S {...p}>
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <path d="M12 18h.01" />
+  </S>
+);
