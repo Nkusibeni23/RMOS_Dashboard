@@ -10,11 +10,14 @@ import {
   markFound,
   sendCommand,
   clearQueue,
+  listOwners,
+  assignDevice,
 } from "@/lib/api";
-import type { CommandStatus, CommandType, Device } from "@/lib/types";
+import type { CommandStatus, CommandType, Device, Owner } from "@/lib/types";
 import { TopBar } from "@/components/TopBar";
 import { StatusPill } from "@/components/StatusPill";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { Select } from "@/components/Select";
 import { KioskPanel } from "@/components/KioskPanel";
 import { DeviceTelemetry } from "@/components/DeviceTelemetry";
 import { useToast } from "@/components/Toast";
@@ -53,6 +56,8 @@ export default function DeviceDetailPage() {
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [assigning, setAssigning] = useState(false);
 
   // Track command status across polls so we can toast the moment a command is
   // acknowledged or fails on the phone — the "Sent → Acked ✓" feedback loop.
@@ -79,8 +84,25 @@ export default function DeviceDetailPage() {
       return;
     }
     refresh();
+    listOwners()
+      .then(setOwners)
+      .catch(() => {});
   }, [refresh, router]);
   usePolling(refresh, 5000);
+
+  async function handleAssign(ownerId: string | null) {
+    setAssigning(true);
+    try {
+      await assignDevice(id, ownerId);
+      toast.success(ownerId ? "Assigned to client" : "Unassigned");
+      await refresh();
+    } catch (e) {
+      toast.error("Couldn't change the client");
+      setError(String(e));
+    } finally {
+      setAssigning(false);
+    }
+  }
 
   // Watch for commands flipping to ACKED / FAILED between polls and toast the result.
   useEffect(() => {
@@ -110,7 +132,9 @@ export default function DeviceDetailPage() {
     const newest = device?.locations?.[0];
     if (newest && newest.id !== locateBaseline.current) {
       setLocating(false);
-      const acc = newest.accuracyM ? ` · ±${Math.round(newest.accuracyM)}m` : "";
+      const acc = newest.accuracyM
+        ? ` · ±${Math.round(newest.accuracyM)}m`
+        : "";
       toast.success(`📍 Fresh location${acc}`);
       return;
     }
@@ -282,7 +306,8 @@ export default function DeviceDetailPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-rm-warn">
                   <span className="font-semibold">
-                    {queued.length} command{queued.length > 1 ? "s" : ""} waiting
+                    {queued.length} command{queued.length > 1 ? "s" : ""}{" "}
+                    waiting
                   </span>{" "}
                   — the phone is offline. {queued.length > 1 ? "They" : "It"}{" "}
                   deliver automatically when it reconnects.
@@ -364,6 +389,43 @@ export default function DeviceDetailPage() {
             </button>
           )}
         </header>
+
+        {/* Assigned client (owner) */}
+        <section className="rounded-2xl border border-rm-line bg-rm-panel p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm min-w-0">
+            <span className="text-rm-slate shrink-0">Client:</span>
+            {device.assignedOwner ? (
+              <span className="font-medium text-rm-fog truncate">
+                {device.assignedOwner.type === "ORGANIZATION" ? "🏢" : "👤"}{" "}
+                {device.assignedOwner.name}
+              </span>
+            ) : (
+              <span className="font-medium text-rm-warn">⚠ Unassigned</span>
+            )}
+            {device.assignedOwner && (
+              <span className="text-xs text-rm-graphite hidden sm:inline">
+                — shown on the phone as “managed by”
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Select
+              value={device.assignedOwnerId ?? ""}
+              disabled={assigning}
+              onChange={(v) => handleAssign(v || null)}
+              placeholder="— Unassigned —"
+              aria-label="Assign to client"
+              className="min-w-[200px]"
+              options={owners.map((o) => ({
+                value: o.id,
+                label: `${o.type === "ORGANIZATION" ? "🏢" : "👤"} ${o.name}`,
+              }))}
+            />
+            {assigning && (
+              <span className="text-xs text-rm-slate">saving…</span>
+            )}
+          </div>
+        </section>
 
         {error && (
           <div className="text-sm text-rm-danger bg-rm-danger-soft border border-rm-danger/20 rounded-xl p-3">
