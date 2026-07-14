@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-export type SelectOption = { value: string; label: string };
+export type SelectOption = { value: string; label: string; icon?: React.ReactNode };
 
 /**
  * Fully custom dropdown (not a native <select>) so the OPEN menu is styled consistently across
@@ -64,7 +64,10 @@ export function Select({
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between gap-2 rounded-lg border border-rm-line bg-rm-panel pl-3 pr-2.5 py-2 text-sm transition cursor-pointer hover:border-rm-green/40 focus:border-rm-green focus:outline-none focus:ring-2 focus:ring-rm-green/20 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <span className={`truncate ${selected ? 'text-rm-ink' : 'text-rm-slate'}`}>{display}</span>
+        <span className={`flex items-center gap-2 truncate ${selected ? 'text-rm-ink' : 'text-rm-slate'}`}>
+          {selected?.icon && <span className="shrink-0 text-rm-slate">{selected.icon}</span>}
+          <span className="truncate">{display}</span>
+        </span>
         <svg
           className={`shrink-0 text-rm-slate transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           width="14"
@@ -92,6 +95,7 @@ export function Select({
             <Row
               key={o.value}
               label={o.label}
+              icon={o.icon}
               selected={o.value === value}
               onClick={() => pick(o.value)}
             />
@@ -104,11 +108,13 @@ export function Select({
 
 function Row({
   label,
+  icon,
   selected,
   muted = false,
   onClick,
 }: {
   label: string;
+  icon?: React.ReactNode;
   selected: boolean;
   muted?: boolean;
   onClick: () => void;
@@ -127,7 +133,10 @@ function Row({
             : 'text-rm-ink'
       }`}
     >
-      <span className="truncate">{label}</span>
+      <span className="flex items-center gap-2 truncate">
+        {icon && <span className="shrink-0 text-rm-slate">{icon}</span>}
+        <span className="truncate">{label}</span>
+      </span>
       {selected && (
         <svg
           className="shrink-0 text-rm-green"

@@ -98,3 +98,20 @@ export const ShieldIcon = (p: P) => (
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
   </S>
 );
+
+// Client type: Organization (building) / Person (user).
+export const OrgIcon = (p: P) => (
+  <S {...p}>
+    <path d="M3 21h18" />
+    <path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16" />
+    <path d="M15 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4" />
+    <path d="M9 7h2M9 11h2M9 15h2" />
+  </S>
+);
+
+export const PersonIcon = (p: P) => (
+  <S {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+  </S>
+);

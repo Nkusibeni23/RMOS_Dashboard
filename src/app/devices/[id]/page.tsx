@@ -30,9 +30,10 @@ import {
   UnlockIcon,
   MessageIcon,
   WipeIcon,
+  OrgIcon,
+  PersonIcon,
 } from "@/components/icons";
 
-// Leaflet uses window — must be client-only.
 const DeviceMap = dynamic(() => import("@/components/DeviceMap"), {
   ssr: false,
 });
@@ -59,8 +60,6 @@ export default function DeviceDetailPage() {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [assigning, setAssigning] = useState(false);
 
-  // Track command status across polls so we can toast the moment a command is
-  // acknowledged or fails on the phone — the "Sent → Acked ✓" feedback loop.
   const seenStatus = useRef<Map<string, CommandStatus>>(new Map());
   const seeded = useRef(false);
   const locateBaseline = useRef<string | null>(null);
@@ -104,7 +103,6 @@ export default function DeviceDetailPage() {
     }
   }
 
-  // Watch for commands flipping to ACKED / FAILED between polls and toast the result.
   useEffect(() => {
     if (!device?.commands) return;
     const first = !seeded.current;
@@ -161,8 +159,6 @@ export default function DeviceDetailPage() {
     }
   }
 
-  // Locate is special: the button stays in "Locating…" until a genuinely FRESH fix lands (detected
-  // in the effect below), not just until the command is sent — so you know it actually worked.
   async function locate() {
     if (!device) return;
     locateBaseline.current = device.locations?.[0]?.id ?? null;
@@ -395,16 +391,22 @@ export default function DeviceDetailPage() {
           <div className="flex items-center gap-2 text-sm min-w-0">
             <span className="text-rm-slate shrink-0">Client:</span>
             {device.assignedOwner ? (
-              <span className="font-medium text-rm-fog truncate">
-                {device.assignedOwner.type === "ORGANIZATION" ? "🏢" : "👤"}{" "}
-                {device.assignedOwner.name}
+              <span className="flex items-center gap-1.5 font-medium text-rm-fog truncate">
+                <span className="shrink-0 text-rm-slate">
+                  {device.assignedOwner.type === "ORGANIZATION" ? (
+                    <OrgIcon size={15} />
+                  ) : (
+                    <PersonIcon size={15} />
+                  )}
+                </span>
+                <span className="truncate">{device.assignedOwner.name}</span>
               </span>
             ) : (
               <span className="font-medium text-rm-warn">⚠ Unassigned</span>
             )}
             {device.assignedOwner && (
               <span className="text-xs text-rm-graphite hidden sm:inline">
-                — shown on the phone as “managed by”
+                shown on the phone as “managed by”
               </span>
             )}
           </div>
@@ -418,7 +420,13 @@ export default function DeviceDetailPage() {
               className="min-w-[200px]"
               options={owners.map((o) => ({
                 value: o.id,
-                label: `${o.type === "ORGANIZATION" ? "🏢" : "👤"} ${o.name}`,
+                label: o.name,
+                icon:
+                  o.type === "ORGANIZATION" ? (
+                    <OrgIcon size={15} />
+                  ) : (
+                    <PersonIcon size={15} />
+                  ),
               }))}
             />
             {assigning && (

@@ -89,9 +89,6 @@ export default function ClientsPage() {
           </div>
         ) : owners.length === 0 ? (
           <div className="card p-12 text-center">
-            <div className="mx-auto mb-4 grid place-items-center w-12 h-12 rounded-full bg-rm-green/10 text-rm-green text-2xl">
-              🏢
-            </div>
             <p className="font-medium text-rm-fog">No clients yet</p>
             <p className="text-sm text-rm-graphite mt-1">
               Add a person or organization, then assign their phones.
@@ -173,7 +170,7 @@ function OwnerCard({
                 : "bg-rm-green-soft text-rm-green-deep"
             }`}
           >
-            {isOrg ? "🏢" : "👤"}
+            {owner.name.charAt(0).toUpperCase()}
           </span>
           <div className="min-w-0">
             <div className="font-semibold text-rm-fog truncate">
@@ -196,10 +193,10 @@ function OwnerCard({
 
       {(owner.contactName || owner.contactPhone || owner.contactEmail) && (
         <div className="mt-3 space-y-0.5 text-xs text-rm-graphite">
-          {owner.contactName && <div>👤 {owner.contactName}</div>}
-          {owner.contactPhone && <div>📞 {owner.contactPhone}</div>}
+          {owner.contactName && <div>{owner.contactName}</div>}
+          {owner.contactPhone && <div>{owner.contactPhone}</div>}
           {owner.contactEmail && (
-            <div className="truncate">✉️ {owner.contactEmail}</div>
+            <div className="truncate">{owner.contactEmail}</div>
           )}
         </div>
       )}
@@ -298,7 +295,7 @@ function OwnerFormModal({
                     : "border-rm-line text-rm-slate hover:bg-rm-canvas"
                 }`}
               >
-                {t === "ORGANIZATION" ? "🏢 Organization" : "👤 Person"}
+                {t === "ORGANIZATION" ? "Organization" : "Person"}
               </button>
             ))}
           </div>
