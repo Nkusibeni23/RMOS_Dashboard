@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, deleteDevice, getToken, listDevices } from "@/lib/api";
-import type { Device } from "@/lib/types";
+import { ApiError, deleteDevice, getToken, listDevices, listOwners } from "@/lib/api";
+import type { Device, Owner } from "@/lib/types";
 import { TopBar } from "@/components/TopBar";
 import { StatusPill } from "@/components/StatusPill";
 import { useToast } from "@/components/Toast";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { Select } from "@/components/Select";
 import { usePolling } from "@/lib/usePolling";
 
 function isOnline(d: Device) {
@@ -24,6 +25,8 @@ export default function DevicesPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<Device | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [filterOwner, setFilterOwner] = useState<string>("all");
 
   const load = useCallback(
     () =>
@@ -45,8 +48,22 @@ export default function DevicesPage() {
       return;
     }
     load();
+    listOwners().then(setOwners).catch(() => {});
+    // Deep-link: /devices?owner=<id> (or "unassigned") pre-selects the filter, so a client card
+    // on the Clients page can jump straight to that client's phones.
+    const owner = new URLSearchParams(window.location.search).get("owner");
+    if (owner) setFilterOwner(owner);
   }, [router, load]);
   usePolling(load, 5000);
+
+  const unassignedCount = devices?.filter((d) => !d.assignedOwnerId).length ?? 0;
+  const shown = (devices ?? []).filter((d) =>
+    filterOwner === "all"
+      ? true
+      : filterOwner === "unassigned"
+        ? !d.assignedOwnerId
+        : d.assignedOwnerId === filterOwner,
+  );
 
   // Opens the confirmation modal (replaces the ugly browser confirm()).
   function askRemove(e: React.MouseEvent, d: Device) {
@@ -105,6 +122,33 @@ export default function DevicesPage() {
           </div>
         )}
 
+        {devices && devices.length > 0 && (
+          <div className="flex items-center gap-3 mb-4">
+            <Select
+              value={filterOwner}
+              onChange={setFilterOwner}
+              aria-label="Filter by client"
+              className="min-w-[220px]"
+              options={[
+                { value: "all", label: `All devices (${devices.length})` },
+                { value: "unassigned", label: `⚠ Unassigned (${unassignedCount})` },
+                ...owners.map((o) => ({
+                  value: o.id,
+                  label: `${o.type === "ORGANIZATION" ? "🏢" : "👤"} ${o.name}`,
+                })),
+              ]}
+            />
+            {filterOwner !== "all" && (
+              <button
+                onClick={() => setFilterOwner("all")}
+                className="text-xs text-rm-graphite hover:text-rm-fog transition"
+              >
+                clear
+              </button>
+            )}
+          </div>
+        )}
+
         {!devices ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (
@@ -126,9 +170,13 @@ export default function DevicesPage() {
               Phones appear here automatically after they enroll.
             </p>
           </div>
+        ) : shown.length === 0 ? (
+          <div className="card p-10 text-center text-sm text-rm-graphite">
+            No devices match this filter.
+          </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {devices.map((d) => (
+            {shown.map((d) => (
               <Link
                 key={d.id}
                 href={`/devices/${d.id}`}
@@ -184,8 +232,15 @@ export default function DevicesPage() {
                   </span>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-rm-line text-xs text-rm-graphite truncate">
-                  {d.ownerLabel ?? d.owner?.email ?? "—"}
+                <div className="mt-3 pt-3 border-t border-rm-line text-xs truncate">
+                  {d.assignedOwner ? (
+                    <span className="text-rm-graphite">
+                      {d.assignedOwner.type === "ORGANIZATION" ? "🏢" : "👤"}{" "}
+                      {d.assignedOwner.name}
+                    </span>
+                  ) : (
+                    <span className="text-rm-warn">⚠ Unassigned</span>
+                  )}
                 </div>
               </Link>
             ))}

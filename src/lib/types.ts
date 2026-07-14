@@ -34,6 +34,22 @@ export interface User {
   fullName: string | null;
 }
 
+export type OwnerType = 'PERSON' | 'ORGANIZATION';
+
+/** A client that owns phones — a Person or an Organization. Not a login account. */
+export interface Owner {
+  id: string;
+  type: OwnerType;
+  name: string;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deviceCount?: number;
+}
+
 export interface LocationPing {
   id: string;
   deviceId: string;
@@ -84,6 +100,8 @@ export interface Device {
   lastAlertAt: string | null;
   lastAlertInfo: string | null;
   owner?: { email: string; fullName: string | null };
+  assignedOwnerId: string | null;
+  assignedOwner?: Owner | null;
   locations?: LocationPing[];
   commands?: Command[];
 }

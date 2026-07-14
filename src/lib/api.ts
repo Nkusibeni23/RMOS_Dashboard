@@ -1,6 +1,6 @@
 'use client';
 
-import type { Command, CommandType, Device, User } from './types';
+import type { Command, CommandType, Device, Owner, OwnerType, User } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000';
 
@@ -91,6 +91,40 @@ export function sendCommand(
 /** Clear the pending/undelivered command queue (keeps completed ACKED/FAILED history). */
 export function clearQueue(id: string) {
   return call<{ cleared: number }>(`/api/devices/${id}/commands`, { method: 'DELETE' });
+}
+
+// ─── Owners (clients: Person / Organization) ─────────────────────────────────
+export function listOwners() {
+  return call<Owner[]>('/api/owners');
+}
+
+export type OwnerInput = {
+  type: OwnerType;
+  name: string;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  notes?: string | null;
+};
+
+export function createOwner(data: OwnerInput) {
+  return call<Owner>('/api/owners', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function updateOwner(id: string, data: Partial<OwnerInput>) {
+  return call<Owner>(`/api/owners/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export function deleteOwner(id: string) {
+  return call<void>(`/api/owners/${id}`, { method: 'DELETE' });
+}
+
+/** Assign a device to a client (ownerId), or unassign with ownerId = null. */
+export function assignDevice(deviceId: string, ownerId: string | null) {
+  return call<Device>(`/api/devices/${deviceId}/assign`, {
+    method: 'POST',
+    body: JSON.stringify({ ownerId }),
+  });
 }
 
 export function markFound(id: string) {
