@@ -64,8 +64,6 @@ export default function DevicesPage() {
     listOwners()
       .then(setOwners)
       .catch(() => {});
-    // Deep-link: /devices?owner=<id> (or "unassigned") pre-selects the filter, so a client card
-    // on the Clients page can jump straight to that client's phones.
     const owner = new URLSearchParams(window.location.search).get("owner");
     if (owner) setFilterOwner(owner);
   }, [router, load]);
