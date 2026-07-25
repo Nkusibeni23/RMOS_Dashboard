@@ -19,6 +19,7 @@ import { StatusPill } from "@/components/StatusPill";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { Select } from "@/components/Select";
 import { KioskPanel } from "@/components/KioskPanel";
+import { RadioLockdownControl } from "@/components/RadioLockdownControl";
 import { DeviceTelemetry } from "@/components/DeviceTelemetry";
 import { useToast } from "@/components/Toast";
 import { usePolling } from "@/lib/usePolling";
@@ -556,6 +557,13 @@ export default function DeviceDetailPage() {
             </div>
           </Field>
         </section>
+
+        {/* Radio lockdown — keep the device (and a thief) from taking it offline */}
+        <RadioLockdownControl
+          device={device}
+          onError={setError}
+          onDone={refresh}
+        />
 
         {/* Kiosk & fleet controls (unified RMLauncher agent) */}
         <KioskPanel deviceId={device.id} onError={setError} onDone={refresh} />

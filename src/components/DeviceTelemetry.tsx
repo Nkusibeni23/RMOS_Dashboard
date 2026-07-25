@@ -22,6 +22,12 @@ export function DeviceTelemetry({ device }: { device: Device }) {
           good={!device.keyguardDisabled}
         />
       )}
+      {device.radioLockdown != null && (
+        <StatePill
+          label={device.radioLockdown ? 'Radios locked' : 'Radios free'}
+          good={device.radioLockdown}
+        />
+      )}
     </div>
   );
 }

@@ -39,8 +39,6 @@ export function KioskPanel({
   const [apksLoading, setApksLoading] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<UploadedApk | null>(null);
 
-  // The uploaded-APK library (history). Best-effort — a load failure just shows an empty list.
-  // apksLoading gates the skeleton so we never flash "nothing uploaded" before the fetch lands.
   const loadApks = useCallback(async () => {
     try {
       setApks(await listApks());
@@ -73,8 +71,6 @@ export function KioskPanel({
     }
   }
 
-  // Deletion goes through a confirmation modal (best UX — no accidental data loss, no ugly
-  // browser confirm()). The Delete button opens the modal; this runs on confirm.
   async function confirmDeleteApk() {
     const apk = pendingDelete;
     if (!apk) return;

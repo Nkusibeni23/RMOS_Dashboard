@@ -11,6 +11,7 @@ export type CommandType =
   | 'MESSAGE'
   | 'UNLOCK'
   | 'SET_OWNER'
+  | 'SET_RADIO_LOCKDOWN'
   // Kiosk & fleet control
   | 'REBOOT'
   | 'REAPPLY_POLICIES'
@@ -19,6 +20,7 @@ export type CommandType =
   | 'SET_CAMERA_DISABLED'
   | 'SET_STATUS_BAR_DISABLED'
   | 'SET_KEYGUARD_DISABLED'
+  | 'SET_RADIO_LOCKDOWN'
   | 'SET_WHITELIST'
   | 'SET_APP_HIDDEN'
   | 'ENABLE_SYSTEM_APP'
@@ -94,6 +96,7 @@ export interface Device {
   cameraDisabled: boolean | null;
   statusBarDisabled: boolean | null;
   keyguardDisabled: boolean | null;
+  radioLockdown: boolean | null;
   telemetryAt: string | null;
   // Anti-theft alerts
   lastAlertType: string | null;

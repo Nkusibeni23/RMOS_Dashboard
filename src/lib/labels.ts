@@ -17,6 +17,7 @@ export function friendlyCommand(type: CommandType | string): string {
     SET_CAMERA_DISABLED: 'Camera',
     SET_STATUS_BAR_DISABLED: 'Status bar',
     SET_KEYGUARD_DISABLED: 'Keyguard',
+    SET_RADIO_LOCKDOWN: 'Radio lockdown',
     SET_WHITELIST: 'Whitelist',
     SET_APP_HIDDEN: 'App visibility',
     ENABLE_SYSTEM_APP: 'Enable app',
