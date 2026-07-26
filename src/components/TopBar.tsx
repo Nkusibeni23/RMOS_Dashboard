@@ -48,6 +48,7 @@ export function TopBar() {
           <nav className="flex items-center gap-4">
             {navItem('/devices', 'Devices')}
             {navItem('/clients', 'Clients')}
+            {navItem('/releases', 'RM OS')}
           </nav>
         </div>
         <div className="flex items-center gap-4 text-sm">

@@ -1,6 +1,6 @@
 'use client';
 
-import type { Command, CommandType, Device, Owner, OwnerType, User } from './types';
+import type { Command, CommandType, Device, Owner, OwnerType, OsRelease, User } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000';
 
@@ -187,4 +187,43 @@ export function listApks() {
 
 export function deleteApk(filename: string) {
   return call<{ ok: boolean }>(`/api/apks/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+}
+
+// ─── RMSoft OS releases (OTA) ────────────────────────────────────────────────
+
+export interface ReleaseInput {
+  version: string;
+  notes?: string;
+  packageUrl: string;
+  payloadOffset?: string;
+  payloadSize?: string;
+  payloadProperties?: string[];
+  mandatory?: boolean;
+}
+
+export function listReleases() {
+  return call<OsRelease[]>('/api/releases');
+}
+
+export function getLatestRelease() {
+  return call<OsRelease | null>('/api/releases/latest');
+}
+
+export function createRelease(data: ReleaseInput) {
+  return call<OsRelease>('/api/releases', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteRelease(id: string) {
+  return call<void>(`/api/releases/${id}`, { method: 'DELETE' });
+}
+
+/** Roll a release out — to one device (deviceId) or the whole out-of-date fleet (omit deviceId). */
+export function rolloutRelease(id: string, deviceId?: string) {
+  return call<{ rolledOut: number; version: string }>(`/api/releases/${id}/rollout`, {
+    method: 'POST',
+    body: JSON.stringify(deviceId ? { deviceId } : {}),
+  });
 }
