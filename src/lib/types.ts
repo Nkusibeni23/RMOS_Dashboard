@@ -25,7 +25,22 @@ export type CommandType =
   | 'SET_APP_HIDDEN'
   | 'ENABLE_SYSTEM_APP'
   | 'INSTALL_APK'
-  | 'UPDATE_APP';
+  | 'UPDATE_APP'
+  | 'UPDATE_OS';
+
+/** A published RMSoft OS build the fleet can update to (OTA). */
+export interface OsRelease {
+  id: string;
+  version: string;
+  notes: string | null;
+  packageUrl: string;
+  payloadOffset: string | null;
+  payloadSize: string | null;
+  payloadProperties: string[];
+  mandatory: boolean;
+  createdAt: string;
+  publishedById: string;
+}
 
 export type CommandStatus = 'PENDING' | 'SENT' | 'ACKED' | 'FAILED';
 

@@ -23,6 +23,7 @@ export function friendlyCommand(type: CommandType | string): string {
     ENABLE_SYSTEM_APP: 'Enable app',
     INSTALL_APK: 'Install app',
     UPDATE_APP: 'Update app',
+    UPDATE_OS: 'RM OS update',
   };
   return map[type] ?? type;
 }
