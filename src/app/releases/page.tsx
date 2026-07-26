@@ -304,7 +304,7 @@ function NewReleaseForm({
 
       <details className="text-sm">
         <summary className="cursor-pointer text-rm-slate select-none">
-          Streaming A/B metadata (optional — from payload_properties.txt)
+          Streaming A/B metadata (optional from payload_properties.txt)
         </summary>
         <div className="mt-3 grid sm:grid-cols-2 gap-3">
           <Field label="payload offset">
