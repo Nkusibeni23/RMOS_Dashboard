@@ -106,7 +106,7 @@ export default function ReleasesPage() {
             RM OS releases
           </h1>
           <p className="text-sm text-rm-slate mt-1">
-            Publish a new RMSoft OS build and push it over-the-air — to a single
+            Publish a new RMSoft OS build and push it over-the-air to a single
             device (from its page) or the whole out-of-date fleet here.
           </p>
         </div>
@@ -215,7 +215,9 @@ export default function ReleasesPage() {
       >
         <p>
           Remove{" "}
-          <span className="font-mono text-rm-fog">{pendingDelete?.version}</span>{" "}
+          <span className="font-mono text-rm-fog">
+            {pendingDelete?.version}
+          </span>{" "}
           from the release list. Devices already updated stay on it. This can’t
           be undone.
         </p>
