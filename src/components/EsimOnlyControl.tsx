@@ -4,6 +4,7 @@ import { useState } from "react";
 import { sendCommand } from "@/lib/api";
 import type { Device } from "@/lib/types";
 import { useToast } from "@/components/Toast";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 /**
  * eSIM-only control (send-only). Enforcing eSIM-only disables any physical SIM so a thief can't swap
@@ -22,6 +23,8 @@ export function EsimOnlyControl({
 }) {
   const toast = useToast();
   const [busy, setBusy] = useState<null | "on" | "off">(null);
+  // Which action is awaiting confirmation (null = no modal open).
+  const [confirming, setConfirming] = useState<null | "on" | "off">(null);
 
   async function set(enabled: boolean) {
     setBusy(enabled ? "on" : "off");
@@ -41,6 +44,13 @@ export function EsimOnlyControl({
     }
   }
 
+  async function confirm() {
+    if (confirming === null) return;
+    const enabled = confirming === "on";
+    await set(enabled);
+    setConfirming(null);
+  }
+
   return (
     <section className="rounded-2xl border border-rm-line bg-rm-panel p-5 shadow-card">
       <div className="flex items-start gap-3">
@@ -50,15 +60,15 @@ export function EsimOnlyControl({
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-rm-ink">Physical SIM policy</h3>
           <p className="text-sm text-rm-slate mt-0.5">
-            eSIM-only disables any physical SIM (anti-theft). Turn it off to let this device use a
-            removable SIM.
+            eSIM-only disables any physical SIM. Turn it off to let this device
+            use a removable SIM.
           </p>
 
           <div className="flex flex-wrap gap-2 mt-3">
             <button
               type="button"
               disabled={busy !== null}
-              onClick={() => set(true)}
+              onClick={() => setConfirming("on")}
               className="inline-flex items-center gap-2 rounded-xl border border-rm-line bg-rm-canvas px-3 py-2 text-sm font-medium text-rm-ink transition-colors hover:bg-rm-green-soft hover:text-rm-green-deep disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy === "on" ? "Sending…" : "Enforce eSIM only"}
@@ -66,7 +76,7 @@ export function EsimOnlyControl({
             <button
               type="button"
               disabled={busy !== null}
-              onClick={() => set(false)}
+              onClick={() => setConfirming("off")}
               className="inline-flex items-center gap-2 rounded-xl border border-rm-line bg-rm-canvas px-3 py-2 text-sm font-medium text-rm-ink transition-colors hover:bg-rm-green-soft hover:text-rm-green-deep disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy === "off" ? "Sending…" : "Allow physical SIM"}
@@ -74,10 +84,60 @@ export function EsimOnlyControl({
           </div>
 
           <p className="text-xs text-rm-slate mt-3 leading-relaxed">
-            Send-only, the phone applies it on receipt. Live state is not shown here yet.
+            Send-only, the phone applies it on receipt. Live state is not shown
+            here yet.
           </p>
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirming !== null}
+        danger={confirming === "on"}
+        title={confirming === "on" ? "Enforce eSIM only?" : "Allow a physical SIM?"}
+        confirmLabel={
+          confirming === "on" ? "Enforce eSIM only" : "Allow physical SIM"
+        }
+        busy={busy !== null}
+        onConfirm={confirm}
+        onCancel={() => setConfirming(null)}
+      >
+        {confirming === "on" ? (
+          <>
+            <p>
+              This tells{" "}
+              <span className="font-medium text-rm-fog">
+                {device.model ?? "this device"}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-rm-fog">
+                disable any physical SIM
+              </span>{" "}
+              and accept only its eSIM.
+            </p>
+            <p className="text-rm-slate">
+              Use this as an anti-theft measure so a thief can’t swap in another
+              SIM. The phone applies it on its next check-in.
+            </p>
+          </>
+        ) : (
+          <>
+            <p>
+              This lets{" "}
+              <span className="font-medium text-rm-fog">
+                {device.model ?? "this device"}
+              </span>{" "}
+              use a{" "}
+              <span className="font-medium text-rm-fog">
+                removable physical SIM
+              </span>{" "}
+              again, lifting the eSIM-only restriction.
+            </p>
+            <p className="text-rm-slate">
+              The phone applies it on its next check-in.
+            </p>
+          </>
+        )}
+      </ConfirmModal>
     </section>
   );
 }
