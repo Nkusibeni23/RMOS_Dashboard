@@ -33,7 +33,17 @@ const MAP_STYLE = [
   { featureType: 'landscape', stylers: [{ color: '#f4f7f5' }] },
 ];
 
-export default function DeviceMap({ locations }: { locations: LocationPing[] }) {
+export default function DeviceMap({
+  locations,
+  selectedId,
+  onSelect,
+}: {
+  locations: LocationPing[];
+  /** Ping to centre and emphasise. Defaults to the newest fix. */
+  selectedId?: string | null;
+  /** Fired when a marker is clicked, so a sibling list can stay in sync. */
+  onSelect?: (id: string) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
@@ -43,6 +53,9 @@ export default function DeviceMap({ locations }: { locations: LocationPing[] }) 
   const infoRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const circleRef = useRef<any>(null);
+  // Which ping the map is currently centred on — so a 5s poll doesn't yank the view back while
+  // the user is panning around.
+  const centeredRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!KEY || !locations || locations.length === 0) return;
@@ -53,8 +66,9 @@ export default function DeviceMap({ locations }: { locations: LocationPing[] }) 
         if (cancelled || !ref.current) return;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const g = (window as any).google;
-        const latest = locations[0];
-        const center = { lat: latest.latitude, lng: latest.longitude };
+        const active =
+          locations.find((p) => p.id === selectedId) ?? locations[0];
+        const center = { lat: active.latitude, lng: active.longitude };
 
         if (!mapRef.current) {
           mapRef.current = new g.maps.Map(ref.current, {
@@ -76,18 +90,20 @@ export default function DeviceMap({ locations }: { locations: LocationPing[] }) 
             styles: MAP_STYLE, // applies to the roadmap view only
           });
           infoRef.current = new g.maps.InfoWindow();
-        } else {
+          centeredRef.current = active.id;
+        } else if (centeredRef.current !== active.id) {
           mapRef.current.panTo(center);
+          centeredRef.current = active.id;
         }
 
-        // Accuracy ring around the latest fix — shows how precise the position is (network fixes are
+        // Accuracy ring around the active fix — shows how precise the position is (network fixes are
         // coarser than GPS, so this makes the difference legible at a glance).
         if (circleRef.current) circleRef.current.setMap(null);
-        if (typeof latest.accuracyM === 'number' && latest.accuracyM > 0) {
+        if (typeof active.accuracyM === 'number' && active.accuracyM > 0) {
           circleRef.current = new g.maps.Circle({
             map: mapRef.current,
             center,
-            radius: latest.accuracyM,
+            radius: active.accuracyM,
             strokeColor: '#12A85E',
             strokeOpacity: 0.7,
             strokeWeight: 1.5,
@@ -96,25 +112,26 @@ export default function DeviceMap({ locations }: { locations: LocationPing[] }) 
           });
         }
 
-        // Redraw markers (latest emphasized in RMSoft green).
+        // Redraw markers (the active fix emphasized in RMSoft green).
         markersRef.current.forEach((m) => m.setMap(null));
-        markersRef.current = locations.map((p, i) => {
-          const isLatest = i === 0;
+        markersRef.current = locations.map((p) => {
+          const isActive = p.id === active.id;
           const marker = new g.maps.Marker({
             position: { lat: p.latitude, lng: p.longitude },
             map: mapRef.current,
             title: new Date(p.reportedAt).toLocaleString(),
-            zIndex: isLatest ? 999 : 1,
+            zIndex: isActive ? 999 : 1,
             icon: {
               path: g.maps.SymbolPath.CIRCLE,
-              scale: isLatest ? 8 : 5,
-              fillColor: isLatest ? '#12A85E' : '#5A655F',
+              scale: isActive ? 8 : 5,
+              fillColor: isActive ? '#12A85E' : '#5A655F',
               fillOpacity: 1,
               strokeColor: '#ffffff',
               strokeWeight: 2,
             },
           });
           marker.addListener('click', () => {
+            onSelect?.(p.id);
             infoRef.current.setContent(
               `<div style="font:13px -apple-system,system-ui;color:#0C1613">
                  <b>${new Date(p.reportedAt).toLocaleString()}</b>
@@ -134,7 +151,7 @@ export default function DeviceMap({ locations }: { locations: LocationPing[] }) 
     return () => {
       cancelled = true;
     };
-  }, [locations]);
+  }, [locations, selectedId, onSelect]);
 
   if (!KEY) {
     return (
