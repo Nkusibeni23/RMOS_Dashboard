@@ -141,7 +141,7 @@ export default function DeviceDetailPage() {
     }
     if (locateStart.current && Date.now() - locateStart.current > 35000) {
       setLocating(false);
-      toast.error("No fresh fix yet — the phone may be offline or indoors");
+      toast.error("No fresh fix yet, the phone may be offline or indoors");
     }
   }, [locating, device, toast]);
 
@@ -268,9 +268,9 @@ export default function DeviceDetailPage() {
             <div className="min-w-0">
               <p className="font-semibold text-rm-danger">
                 {device.lastAlertType === "SIM_SWAP"
-                  ? "SIM swap detected — phone auto-locked"
+                  ? "SIM swap detected, phone auto-locked"
                   : device.lastAlertType === "TAMPER"
-                    ? "Tamper attempt — device flagged"
+                    ? "Tamper attempt, device flagged"
                     : `Alert: ${device.lastAlertType}`}
               </p>
               <p className="text-sm text-rm-danger/80">
@@ -308,7 +308,7 @@ export default function DeviceDetailPage() {
                     {queued.length} command{queued.length > 1 ? "s" : ""}{" "}
                     waiting
                   </span>{" "}
-                  — the phone is offline. {queued.length > 1 ? "They" : "It"}{" "}
+                  while the phone is offline. {queued.length > 1 ? "They" : "It"}{" "}
                   deliver automatically when it reconnects.
                 </p>
               </div>
@@ -421,7 +421,7 @@ export default function DeviceDetailPage() {
               value={device.assignedOwnerId ?? ""}
               disabled={assigning}
               onChange={(v) => handleAssign(v || null)}
-              placeholder="— Unassigned —"
+              placeholder="Unassigned"
               aria-label="Assign to client"
               className="min-w-[200px]"
               options={owners.map((o) => ({
@@ -514,7 +514,7 @@ export default function DeviceDetailPage() {
             />
             <ActionButton
               label="Wipe (data)"
-              hint="Factory reset — user data"
+              hint="Factory reset, user data"
               icon={<WipeIcon />}
               onClick={() => setWipe({ everything: false })}
               busy={busy === "WIPE"}
@@ -601,7 +601,7 @@ export default function DeviceDetailPage() {
                         <CmdStatus status={c.status} />
                       </td>
                       <td className="px-5 py-2 text-rm-graphite">
-                        {c.ackedAt ? new Date(c.ackedAt).toLocaleString() : "—"}
+                        {c.ackedAt ? new Date(c.ackedAt).toLocaleString() : "pending"}
                       </td>
                     </tr>
                   ))}
@@ -631,7 +631,7 @@ export default function DeviceDetailPage() {
           <span className="font-mono text-rm-fog">{device.serialNumber}</span>{" "}
           and erases{" "}
           {wipe?.everything
-            ? "ALL data — internal storage, SD card, eSIM profile, and reset-protection."
+            ? "ALL data: internal storage, SD card, eSIM profile, and reset-protection."
             : "all user data on internal storage."}
         </p>
         <p className="text-rm-danger font-medium">This cannot be undone.</p>
