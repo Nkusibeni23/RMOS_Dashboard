@@ -5,3 +5,7 @@ out/
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# Claude Code local config
+.claude/
+CLAUDE.md
