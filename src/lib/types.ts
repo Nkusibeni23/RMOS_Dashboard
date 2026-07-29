@@ -12,6 +12,7 @@ export type CommandType =
   | 'UNLOCK'
   | 'SET_OWNER'
   | 'SET_RADIO_LOCKDOWN'
+  | 'SET_ESIM_ONLY'
   // Kiosk & fleet control
   | 'REBOOT'
   | 'REAPPLY_POLICIES'

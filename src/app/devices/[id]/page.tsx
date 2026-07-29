@@ -20,6 +20,7 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { Select } from "@/components/Select";
 import { KioskPanel } from "@/components/KioskPanel";
 import { RadioLockdownControl } from "@/components/RadioLockdownControl";
+import { EsimOnlyControl } from "@/components/EsimOnlyControl";
 import { SoftwareUpdateCard } from "@/components/SoftwareUpdateCard";
 import { DeviceTelemetry } from "@/components/DeviceTelemetry";
 import { useToast } from "@/components/Toast";
@@ -568,6 +569,9 @@ export default function DeviceDetailPage() {
           onError={setError}
           onDone={refresh}
         />
+
+        {/* eSIM-only physical SIM policy (send-only) */}
+        <EsimOnlyControl device={device} onError={setError} onDone={refresh} />
 
         {/* Kiosk & fleet controls (unified RMLauncher agent) */}
         <KioskPanel deviceId={device.id} onError={setError} onDone={refresh} />
