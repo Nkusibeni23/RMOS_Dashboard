@@ -23,6 +23,8 @@ import { RadioLockdownControl } from "@/components/RadioLockdownControl";
 import { EsimOnlyControl } from "@/components/EsimOnlyControl";
 import { SoftwareUpdateCard } from "@/components/SoftwareUpdateCard";
 import { DeviceTelemetry } from "@/components/DeviceTelemetry";
+import { LocationHistory } from "@/components/LocationHistory";
+import { DeviceInfoCard } from "@/components/DeviceInfoCard";
 import { useToast } from "@/components/Toast";
 import { usePolling } from "@/lib/usePolling";
 import { friendlyCommand } from "@/lib/labels";
@@ -44,6 +46,8 @@ const DeviceMap = dynamic(() => import("@/components/DeviceMap"), {
 
 const inputCls = "input";
 
+type TabKey = "overview" | "actions" | "security" | "kiosk" | "history";
+
 export default function DeviceDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -63,6 +67,9 @@ export default function DeviceDetailPage() {
   const [locating, setLocating] = useState(false);
   const [owners, setOwners] = useState<Owner[]>([]);
   const [assigning, setAssigning] = useState(false);
+  const [tab, setTab] = useState<TabKey>("overview");
+  // Which ping the map + history list are focused on. null = follow the newest fix.
+  const [focusedPing, setFocusedPing] = useState<string | null>(null);
 
   const seenStatus = useRef<Map<string, CommandStatus>>(new Map());
   const seeded = useRef(false);
@@ -134,6 +141,7 @@ export default function DeviceDetailPage() {
     const newest = device?.locations?.[0];
     if (newest && newest.id !== locateBaseline.current) {
       setLocating(false);
+      setFocusedPing(null); // a fix you just asked for should be the one on screen
       const acc = newest.accuracyM
         ? ` · ±${Math.round(newest.accuracyM)}m`
         : "";
@@ -247,48 +255,12 @@ export default function DeviceDetailPage() {
   return (
     <>
       <TopBar />
-      <main className="max-w-6xl mx-auto px-5 py-8 space-y-5 animate-fade-up">
-        {/* Anti-theft alert banner */}
-        {device.lastAlertType && (
-          <div className="flex items-start gap-3 rounded-2xl border border-rm-danger/30 bg-rm-danger-soft p-4">
-            <span className="shrink-0 grid place-items-center w-9 h-9 rounded-lg bg-white text-rm-danger">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-                <path d="M12 9v4M12 17h.01" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className="font-semibold text-rm-danger">
-                {device.lastAlertType === "SIM_SWAP"
-                  ? "SIM swap detected, phone auto-locked"
-                  : device.lastAlertType === "TAMPER"
-                    ? "Tamper attempt, device flagged"
-                    : `Alert: ${device.lastAlertType}`}
-              </p>
-              <p className="text-sm text-rm-danger/80">
-                {device.lastAlertInfo ?? "Possible theft"}
-                {device.lastAlertAt
-                  ? ` · ${new Date(device.lastAlertAt).toLocaleString()}`
-                  : ""}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Offline command queue */}
-        {!online && queued.length > 0 && (
-          <div className="rounded-2xl border border-rm-warn/30 bg-rm-warn-soft p-4">
-            <div className="flex items-start gap-3">
-              <span className="shrink-0 grid place-items-center w-9 h-9 rounded-lg bg-white text-rm-warn">
+      <main className="max-w-7xl mx-auto px-5 py-8 animate-fade-up">
+        <div className="space-y-5">
+          {/* Anti-theft alert banner */}
+          {device.lastAlertType && (
+            <div className="flex items-start gap-3 rounded-2xl border border-rm-danger/30 bg-rm-danger-soft p-4">
+              <span className="shrink-0 grid place-items-center w-9 h-9 rounded-lg bg-white text-rm-danger">
                 <svg
                   width="18"
                   height="18"
@@ -299,325 +271,439 @@ export default function DeviceDetailPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <path d="M12 8v4l3 2" />
-                  <circle cx="12" cy="12" r="9" />
+                  <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                  <path d="M12 9v4M12 17h.01" />
                 </svg>
               </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-rm-warn">
-                  <span className="font-semibold">
-                    {queued.length} command{queued.length > 1 ? "s" : ""}{" "}
-                    waiting
-                  </span>{" "}
-                  while the phone is offline. {queued.length > 1 ? "They" : "It"}{" "}
-                  deliver automatically when it reconnects.
+              <div className="min-w-0">
+                <p className="font-semibold text-rm-danger">
+                  {device.lastAlertType === "SIM_SWAP"
+                    ? "SIM swap detected, phone auto-locked"
+                    : device.lastAlertType === "TAMPER"
+                      ? "Tamper attempt, device flagged"
+                      : `Alert: ${device.lastAlertType}`}
+                </p>
+                <p className="text-sm text-rm-danger/80">
+                  {device.lastAlertInfo ?? "Possible theft"}
+                  {device.lastAlertAt
+                    ? ` · ${new Date(device.lastAlertAt).toLocaleString()}`
+                    : ""}
                 </p>
               </div>
-              <button
-                onClick={() => setConfirmClear(true)}
-                disabled={clearing}
-                className="shrink-0 self-start px-3 py-1.5 rounded-lg border border-rm-warn/40 text-rm-warn text-xs font-medium hover:bg-white/60 transition disabled:opacity-50"
-              >
-                {clearing ? "Clearing…" : "Clear queue"}
-              </button>
             </div>
+          )}
 
-            {/* What's actually queued — command + when it was sent */}
-            <ul className="mt-3 space-y-1 border-t border-rm-warn/20 pt-3">
-              {queued.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between gap-3 text-xs"
+          {/* Offline command queue */}
+          {!online && queued.length > 0 && (
+            <div className="rounded-2xl border border-rm-warn/30 bg-rm-warn-soft p-4">
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 grid place-items-center w-9 h-9 rounded-lg bg-white text-rm-warn">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 8v4l3 2" />
+                    <circle cx="12" cy="12" r="9" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-rm-warn">
+                    <span className="font-semibold">
+                      {queued.length} command{queued.length > 1 ? "s" : ""}{" "}
+                      waiting
+                    </span>{" "}
+                    while the phone is offline.{" "}
+                    {queued.length > 1 ? "They" : "It"} deliver automatically
+                    when it reconnects.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setConfirmClear(true)}
+                  disabled={clearing}
+                  className="shrink-0 self-start px-3 py-1.5 rounded-lg border border-rm-warn/40 text-rm-warn text-xs font-medium hover:bg-white/60 transition disabled:opacity-50"
                 >
-                  <span className="font-medium text-rm-warn">
-                    {friendlyCommand(c.type)}
-                  </span>
-                  <span className="text-rm-warn/70 tabular-nums shrink-0">
-                    {new Date(c.sentAt ?? c.createdAt).toLocaleString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+                  {clearing ? "Clearing…" : "Clear queue"}
+                </button>
+              </div>
 
-        {/* Header card */}
-        <header className="rounded-2xl border border-rm-line bg-rm-panel p-6 shadow-card flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-bold tracking-tight text-rm-fog truncate">
-                {device.model ?? "Device"}
-              </h2>
-              <StatusPill status={device.status} />
+              {/* What's actually queued — command + when it was sent */}
+              <ul className="mt-3 space-y-1 border-t border-rm-warn/20 pt-3">
+                {queued.map((c) => (
+                  <li
+                    key={c.id}
+                    className="flex items-center justify-between gap-3 text-xs"
+                  >
+                    <span className="font-medium text-rm-warn">
+                      {friendlyCommand(c.type)}
+                    </span>
+                    <span className="text-rm-warn/70 tabular-nums shrink-0">
+                      {new Date(c.sentAt ?? c.createdAt).toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <p className="text-sm text-rm-graphite font-mono mt-1">
-              {device.serialNumber}
-            </p>
-            {device.hardwareSerial && (
-              <p className="text-xs text-rm-graphite/70 font-mono">
-                HW serial · {device.hardwareSerial}
-              </p>
-            )}
-            {device.ownerLabel && (
-              <p className="text-sm text-rm-fog mt-1">
-                Owner · {device.ownerLabel}
-              </p>
-            )}
-            <div className="mt-3 flex items-center gap-2 text-sm text-rm-graphite">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  online ? "bg-rm-green" : "bg-rm-graphite/50"
-                }`}
-              />
-              {online
-                ? "Online now"
-                : `Last seen ${
-                    device.lastSeenAt
-                      ? new Date(device.lastSeenAt).toLocaleString()
-                      : "never"
-                  }`}
-            </div>
-            <DeviceTelemetry device={device} />
-          </div>
-          {device.status === "LOST" && (
-            <button
-              onClick={onMarkFound}
-              disabled={busy !== null}
-              className="shrink-0 bg-rm-green text-rm-black font-medium px-4 py-2 rounded-lg hover:brightness-110 disabled:opacity-50 transition"
-            >
-              Mark found
-            </button>
           )}
-        </header>
+        </div>
 
-        {/* Assigned client (owner) */}
-        <section className="rounded-2xl border border-rm-line bg-rm-panel p-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm min-w-0">
-            <span className="text-rm-slate shrink-0">Client:</span>
-            {device.assignedOwner ? (
-              <span className="flex items-center gap-1.5 font-medium text-rm-fog truncate">
-                <span className="shrink-0 text-rm-slate">
-                  {device.assignedOwner.type === "ORGANIZATION" ? (
-                    <OrgIcon size={15} />
-                  ) : (
-                    <PersonIcon size={15} />
-                  )}
-                </span>
-                <span className="truncate">{device.assignedOwner.name}</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 font-medium text-rm-warn">
-                <AlertIcon size={15} />
-                Unassigned
-              </span>
+        <div className="mt-5 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6 lg:items-start">
+          {/* LEFT: sticky device identity + navigation */}
+          <aside className="lg:sticky lg:top-6 space-y-4">
+            {/* Identity card */}
+            <header className="rounded-2xl border border-rm-line bg-rm-panel p-6 shadow-card">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold tracking-tight text-rm-fog truncate">
+                    {device.model ?? "Device"}
+                  </h2>
+                  <StatusPill status={device.status} />
+                </div>
+                <p className="text-sm text-rm-graphite font-mono mt-1">
+                  {device.serialNumber}
+                </p>
+                {device.hardwareSerial && (
+                  <p className="text-xs text-rm-graphite/70 font-mono">
+                    HW serial · {device.hardwareSerial}
+                  </p>
+                )}
+                {device.ownerLabel && (
+                  <p className="text-sm text-rm-fog mt-1">
+                    Owner · {device.ownerLabel}
+                  </p>
+                )}
+                <div className="mt-3 flex items-center gap-2 text-sm text-rm-graphite">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      online ? "bg-rm-green" : "bg-rm-graphite/50"
+                    }`}
+                  />
+                  {online
+                    ? "Online now"
+                    : `Last seen ${
+                        device.lastSeenAt
+                          ? new Date(device.lastSeenAt).toLocaleString()
+                          : "never"
+                      }`}
+                </div>
+                <DeviceTelemetry device={device} />
+              </div>
+              {device.status === "LOST" && (
+                <button
+                  onClick={onMarkFound}
+                  disabled={busy !== null}
+                  className="shrink-0 bg-rm-green text-rm-black font-medium px-4 py-2 rounded-lg hover:brightness-110 disabled:opacity-50 transition"
+                >
+                  Mark found
+                </button>
+              )}
+            </header>
+
+            <TabNav tab={tab} onChange={setTab} vertical />
+          </aside>
+
+          {/* RIGHT: active tab content */}
+          <div className="space-y-5 mt-5 lg:mt-0">
+            {error && (
+              <div className="text-sm text-rm-danger bg-rm-danger-soft border border-rm-danger/20 rounded-xl p-3">
+                {error}
+              </div>
             )}
-            {device.assignedOwner && (
-              <span className="text-xs text-rm-graphite hidden sm:inline">
-                shown on the phone as “managed by”
-              </span>
+
+            {tab === "overview" && (
+              <div className="space-y-5">
+                {/* Assigned client (owner) */}
+                <section className="rounded-2xl border border-rm-line bg-rm-panel p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm min-w-0">
+                    <span className="text-rm-slate shrink-0">Client:</span>
+                    {device.assignedOwner ? (
+                      <span className="flex items-center gap-1.5 font-medium text-rm-fog truncate">
+                        <span className="shrink-0 text-rm-slate">
+                          {device.assignedOwner.type === "ORGANIZATION" ? (
+                            <OrgIcon size={15} />
+                          ) : (
+                            <PersonIcon size={15} />
+                          )}
+                        </span>
+                        <span className="truncate">
+                          {device.assignedOwner.name}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 font-medium text-rm-warn">
+                        <AlertIcon size={15} />
+                        Unassigned
+                      </span>
+                    )}
+                    {device.assignedOwner && (
+                      <span className="text-xs text-rm-graphite hidden sm:inline">
+                        shown on the phone as “managed by”
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Select
+                      value={device.assignedOwnerId ?? ""}
+                      disabled={assigning}
+                      onChange={(v) => handleAssign(v || null)}
+                      placeholder="Unassigned"
+                      aria-label="Assign to client"
+                      className="min-w-[200px]"
+                      options={owners.map((o) => ({
+                        value: o.id,
+                        label: o.name,
+                        icon:
+                          o.type === "ORGANIZATION" ? (
+                            <OrgIcon size={15} />
+                          ) : (
+                            <PersonIcon size={15} />
+                          ),
+                      }))}
+                    />
+                    {assigning && (
+                      <span className="text-xs text-rm-slate">saving…</span>
+                    )}
+                  </div>
+                </section>
+
+                {/* Map */}
+                <section className="rounded-2xl border border-rm-line bg-rm-panel p-5 shadow-card">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <h3 className="font-semibold text-rm-fog">Location</h3>
+                      {locating ? (
+                        <span className="flex items-center gap-2 text-xs font-medium text-rm-green">
+                          <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full rounded-full bg-rm-green opacity-75 animate-ping" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rm-green" />
+                          </span>
+                          Locating…
+                        </span>
+                      ) : device.locations?.[0] ? (
+                        <span className="text-xs text-rm-slate truncate">
+                          Updated{" "}
+                          {new Date(
+                            device.locations[0].reportedAt,
+                          ).toLocaleTimeString()}
+                          {device.locations[0].source
+                            ? ` · ${device.locations[0].source}`
+                            : ""}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Viewing an older fix — one click back to live */}
+                      {focusedPing &&
+                        focusedPing !== device.locations?.[0]?.id && (
+                          <button
+                            onClick={() => setFocusedPing(null)}
+                            className="px-3 py-1.5 rounded-lg border border-rm-line text-rm-slate text-xs font-medium hover:bg-rm-canvas hover:text-rm-ink transition"
+                          >
+                            Back to latest
+                          </button>
+                        )}
+                      <button
+                        onClick={locate}
+                        disabled={locating}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rm-green/30 bg-rm-green-soft text-rm-green-deep text-xs font-medium hover:bg-rm-green/15 disabled:opacity-50 transition"
+                      >
+                        <LocateIcon size={14} />
+                        {locating ? "Locating…" : "Locate now"}
+                      </button>
+                    </div>
+                  </div>
+                  <DeviceMap
+                    locations={device.locations ?? []}
+                    selectedId={focusedPing}
+                    onSelect={setFocusedPing}
+                  />
+                </section>
+
+                {/* Ping timeline — click a row to centre the map on that fix */}
+                <LocationHistory
+                  locations={device.locations ?? []}
+                  selectedId={focusedPing}
+                  onSelect={setFocusedPing}
+                />
+
+                {/* Hardware + enrollment facts */}
+                <DeviceInfoCard device={device} />
+              </div>
             )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Select
-              value={device.assignedOwnerId ?? ""}
-              disabled={assigning}
-              onChange={(v) => handleAssign(v || null)}
-              placeholder="Unassigned"
-              aria-label="Assign to client"
-              className="min-w-[200px]"
-              options={owners.map((o) => ({
-                value: o.id,
-                label: o.name,
-                icon:
-                  o.type === "ORGANIZATION" ? (
-                    <OrgIcon size={15} />
-                  ) : (
-                    <PersonIcon size={15} />
-                  ),
-              }))}
-            />
-            {assigning && (
-              <span className="text-xs text-rm-slate">saving…</span>
+
+            {tab === "actions" && (
+              <section className="rounded-2xl border border-rm-line bg-rm-panel p-5 shadow-card">
+                <h3 className="font-semibold text-rm-fog mb-4">Actions</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <ActionButton
+                    label={locating ? "Locating…" : "Locate now"}
+                    hint="Force fresh GPS ping"
+                    icon={<LocateIcon />}
+                    onClick={locate}
+                    busy={locating}
+                  />
+                  <ActionButton
+                    label="Ring loud"
+                    hint="Alarm even on silent"
+                    icon={<RingIcon />}
+                    onClick={() => issue("RING")}
+                    busy={busy === "RING"}
+                  />
+                  <ActionButton
+                    label="Lock screen"
+                    hint="Lock immediately"
+                    icon={<LockIcon />}
+                    onClick={() => issue("LOCK", { message })}
+                    busy={busy === "LOCK"}
+                    variant="warn"
+                  />
+                  <ActionButton
+                    label="Unlock"
+                    hint="Acknowledge a lock"
+                    icon={<UnlockIcon />}
+                    onClick={() => issue("UNLOCK")}
+                    busy={busy === "UNLOCK"}
+                  />
+                  <ActionButton
+                    label="Show message"
+                    hint="Heads-up popup on phone"
+                    icon={<MessageIcon />}
+                    onClick={() => issue("MESSAGE", { message })}
+                    busy={busy === "MESSAGE"}
+                  />
+                  <ActionButton
+                    label="Wipe (data)"
+                    hint="Factory reset, user data"
+                    icon={<WipeIcon />}
+                    onClick={() => setWipe({ everything: false })}
+                    busy={busy === "WIPE"}
+                    variant="danger"
+                  />
+                  <ActionButton
+                    label="Wipe EVERYTHING"
+                    hint="Data + SD + eSIM + FRP"
+                    icon={<WipeIcon />}
+                    onClick={() => setWipe({ everything: true })}
+                    busy={busy === "WIPE"}
+                    variant="danger"
+                  />
+                </div>
+
+                <Field label="Lock-screen / banner message (Lock + Show message)">
+                  <input
+                    className={inputCls}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                  />
+                </Field>
+
+                <Field label="Owner name shows on the lock screen">
+                  <div className="flex gap-2">
+                    <input
+                      className={inputCls}
+                      placeholder="e.g. John Doe"
+                      value={ownerName}
+                      onChange={(e) => setOwnerName(e.target.value)}
+                    />
+                    <button
+                      onClick={() =>
+                        issue("SET_OWNER", { name: ownerName, info: message })
+                      }
+                      disabled={busy !== null || !ownerName.trim()}
+                      className="shrink-0 px-4 rounded-lg bg-rm-green text-rm-black font-medium hover:brightness-110 disabled:opacity-40 transition"
+                    >
+                      {busy === "SET_OWNER" ? "Setting…" : "Set on phone"}
+                    </button>
+                  </div>
+                </Field>
+              </section>
             )}
-          </div>
-        </section>
 
-        {error && (
-          <div className="text-sm text-rm-danger bg-rm-danger-soft border border-rm-danger/20 rounded-xl p-3">
-            {error}
-          </div>
-        )}
+            {tab === "security" && (
+              <div className="space-y-5">
+                {/* Software update — current build vs latest release, one-click OTA to this device */}
+                <SoftwareUpdateCard
+                  device={device}
+                  onError={setError}
+                  onDone={refresh}
+                />
 
-        {/* Map */}
-        <section className="rounded-2xl border border-rm-line bg-rm-panel p-5 shadow-card">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-rm-fog">Location</h3>
-            {locating ? (
-              <span className="flex items-center gap-2 text-xs font-medium text-rm-green">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-rm-green opacity-75 animate-ping" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-rm-green" />
-                </span>
-                Locating…
-              </span>
-            ) : device.locations?.[0] ? (
-              <span className="text-xs text-rm-slate">
-                Updated{" "}
-                {new Date(device.locations[0].reportedAt).toLocaleTimeString()}
-                {device.locations[0].source
-                  ? ` · ${device.locations[0].source}`
-                  : ""}
-              </span>
-            ) : null}
-          </div>
-          <DeviceMap locations={device.locations ?? []} />
-        </section>
+                {/* Radio lockdown — keep the device (and a thief) from taking it offline */}
+                <RadioLockdownControl
+                  device={device}
+                  onError={setError}
+                  onDone={refresh}
+                />
 
-        {/* Actions */}
-        <section className="rounded-2xl border border-rm-line bg-rm-panel p-5 shadow-card">
-          <h3 className="font-semibold text-rm-fog mb-4">Actions</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <ActionButton
-              label={locating ? "Locating…" : "Locate now"}
-              hint="Force fresh GPS ping"
-              icon={<LocateIcon />}
-              onClick={locate}
-              busy={locating}
-            />
-            <ActionButton
-              label="Ring loud"
-              hint="Alarm even on silent"
-              icon={<RingIcon />}
-              onClick={() => issue("RING")}
-              busy={busy === "RING"}
-            />
-            <ActionButton
-              label="Lock screen"
-              hint="Lock immediately"
-              icon={<LockIcon />}
-              onClick={() => issue("LOCK", { message })}
-              busy={busy === "LOCK"}
-              variant="warn"
-            />
-            <ActionButton
-              label="Unlock"
-              hint="Acknowledge a lock"
-              icon={<UnlockIcon />}
-              onClick={() => issue("UNLOCK")}
-              busy={busy === "UNLOCK"}
-            />
-            <ActionButton
-              label="Show message"
-              hint="Heads-up popup on phone"
-              icon={<MessageIcon />}
-              onClick={() => issue("MESSAGE", { message })}
-              busy={busy === "MESSAGE"}
-            />
-            <ActionButton
-              label="Wipe (data)"
-              hint="Factory reset, user data"
-              icon={<WipeIcon />}
-              onClick={() => setWipe({ everything: false })}
-              busy={busy === "WIPE"}
-              variant="danger"
-            />
-            <ActionButton
-              label="Wipe EVERYTHING"
-              hint="Data + SD + eSIM + FRP"
-              icon={<WipeIcon />}
-              onClick={() => setWipe({ everything: true })}
-              busy={busy === "WIPE"}
-              variant="danger"
-            />
-          </div>
+                {/* eSIM-only physical SIM policy (send-only) */}
+                <EsimOnlyControl
+                  device={device}
+                  onError={setError}
+                  onDone={refresh}
+                />
+              </div>
+            )}
 
-          <Field label="Lock-screen / banner message (Lock + Show message)">
-            <input
-              className={inputCls}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-          </Field>
-
-          <Field label="Owner name shows on the lock screen">
-            <div className="flex gap-2">
-              <input
-                className={inputCls}
-                placeholder="e.g. John Doe"
-                value={ownerName}
-                onChange={(e) => setOwnerName(e.target.value)}
+            {tab === "kiosk" && (
+              <KioskPanel
+                deviceId={device.id}
+                onError={setError}
+                onDone={refresh}
               />
-              <button
-                onClick={() =>
-                  issue("SET_OWNER", { name: ownerName, info: message })
-                }
-                disabled={busy !== null || !ownerName.trim()}
-                className="shrink-0 px-4 rounded-lg bg-rm-green text-rm-black font-medium hover:brightness-110 disabled:opacity-40 transition"
-              >
-                {busy === "SET_OWNER" ? "Setting…" : "Set on phone"}
-              </button>
-            </div>
-          </Field>
-        </section>
+            )}
 
-        {/* Software update — current build vs latest release, one-click OTA to this device */}
-        <SoftwareUpdateCard device={device} onError={setError} onDone={refresh} />
-
-        {/* Radio lockdown — keep the device (and a thief) from taking it offline */}
-        <RadioLockdownControl
-          device={device}
-          onError={setError}
-          onDone={refresh}
-        />
-
-        {/* eSIM-only physical SIM policy (send-only) */}
-        <EsimOnlyControl device={device} onError={setError} onDone={refresh} />
-
-        {/* Kiosk & fleet controls (unified RMLauncher agent) */}
-        <KioskPanel deviceId={device.id} onError={setError} onDone={refresh} />
-
-        {/* Command history */}
-        <section className="rounded-2xl border border-rm-line bg-rm-panel shadow-card overflow-hidden">
-          <h3 className="font-semibold text-rm-fog px-5 pt-5 pb-3">
-            Recent commands
-          </h3>
-          {device.commands && device.commands.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-rm-canvas text-rm-slate text-left">
-                  <tr>
-                    <th className="px-5 py-2 font-medium">When</th>
-                    <th className="px-5 py-2 font-medium">Type</th>
-                    <th className="px-5 py-2 font-medium">Status</th>
-                    <th className="px-5 py-2 font-medium">Acked</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {device.commands.map((c) => (
-                    <tr key={c.id} className="border-t border-rm-line">
-                      <td className="px-5 py-2 text-rm-graphite">
-                        {new Date(c.createdAt).toLocaleString()}
-                      </td>
-                      <td className="px-5 py-2 font-mono text-rm-fog">
-                        {c.type}
-                      </td>
-                      <td className="px-5 py-2">
-                        <CmdStatus status={c.status} />
-                      </td>
-                      <td className="px-5 py-2 text-rm-graphite">
-                        {c.ackedAt ? new Date(c.ackedAt).toLocaleString() : "pending"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-sm text-rm-graphite px-5 pb-5">
-              No commands yet.
-            </p>
-          )}
-        </section>
+            {tab === "history" && (
+              <section className="rounded-2xl border border-rm-line bg-rm-panel shadow-card overflow-hidden">
+                <h3 className="font-semibold text-rm-fog px-5 pt-5 pb-3">
+                  Recent commands
+                </h3>
+                {device.commands && device.commands.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-rm-canvas text-rm-slate text-left">
+                        <tr>
+                          <th className="px-5 py-2 font-medium">When</th>
+                          <th className="px-5 py-2 font-medium">Type</th>
+                          <th className="px-5 py-2 font-medium">Status</th>
+                          <th className="px-5 py-2 font-medium">Acked</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {device.commands.map((c) => (
+                          <tr key={c.id} className="border-t border-rm-line">
+                            <td className="px-5 py-2 text-rm-graphite">
+                              {new Date(c.createdAt).toLocaleString()}
+                            </td>
+                            <td className="px-5 py-2 font-mono text-rm-fog">
+                              {c.type}
+                            </td>
+                            <td className="px-5 py-2">
+                              <CmdStatus status={c.status} />
+                            </td>
+                            <td className="px-5 py-2 text-rm-graphite">
+                              {c.ackedAt
+                                ? new Date(c.ackedAt).toLocaleString()
+                                : "pending"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-rm-graphite px-5 pb-5">
+                    No commands yet.
+                  </p>
+                )}
+              </section>
+            )}
+          </div>
+        </div>
       </main>
 
       <ConfirmModal
@@ -662,6 +748,116 @@ export default function DeviceDetailPage() {
         </p>
       </ConfirmModal>
     </>
+  );
+}
+
+function TabNav({
+  tab,
+  onChange,
+  vertical = false,
+}: {
+  tab: TabKey;
+  onChange: (t: TabKey) => void;
+  vertical?: boolean;
+}) {
+  const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+    { key: "overview", label: "Overview", icon: <OverviewGlyph /> },
+    { key: "actions", label: "Actions", icon: <BoltGlyph /> },
+    { key: "security", label: "Security", icon: <ShieldGlyph /> },
+    { key: "kiosk", label: "Kiosk", icon: <KioskGlyph /> },
+    { key: "history", label: "History", icon: <ClockGlyph /> },
+  ];
+  return (
+    <div
+      role="tablist"
+      className={
+        vertical
+          ? "flex flex-col gap-1 rounded-2xl border border-rm-line bg-rm-panel p-1.5 shadow-card"
+          : "flex gap-1 overflow-x-auto rounded-xl border border-rm-line bg-rm-panel p-1 shadow-card"
+      }
+    >
+      {tabs.map((t) => {
+        const active = tab === t.key;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(t.key)}
+            className={`group flex items-center gap-2.5 whitespace-nowrap rounded-xl text-sm font-medium transition-all ${
+              vertical ? "px-3 py-2.5 w-full" : "px-4 py-2"
+            } ${
+              active
+                ? "bg-rm-green-soft text-rm-green-deep"
+                : "text-rm-slate hover:bg-rm-canvas hover:text-rm-ink"
+            }`}
+          >
+            <span
+              className={`shrink-0 transition-colors ${
+                active
+                  ? "text-rm-green-deep"
+                  : "text-rm-slate group-hover:text-rm-ink"
+              }`}
+            >
+              {t.icon}
+            </span>
+            <span>{t.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const glyph = {
+  width: 17,
+  height: 17,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+function OverviewGlyph() {
+  return (
+    <svg {...glyph}>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+function BoltGlyph() {
+  return (
+    <svg {...glyph}>
+      <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />
+    </svg>
+  );
+}
+function ShieldGlyph() {
+  return (
+    <svg {...glyph}>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+function KioskGlyph() {
+  return (
+    <svg {...glyph}>
+      <rect x="4" y="3" width="16" height="14" rx="2" />
+      <path d="M8 21h8M12 17v4" />
+    </svg>
+  );
+}
+function ClockGlyph() {
+  return (
+    <svg {...glyph}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4l3 2" />
+    </svg>
   );
 }
 

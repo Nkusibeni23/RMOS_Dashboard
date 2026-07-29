@@ -93,7 +93,9 @@ export function EsimOnlyControl({
       <ConfirmModal
         open={confirming !== null}
         danger={confirming === "on"}
-        title={confirming === "on" ? "Enforce eSIM only?" : "Allow a physical SIM?"}
+        title={
+          confirming === "on" ? "Enforce eSIM only?" : "Allow a physical SIM?"
+        }
         confirmLabel={
           confirming === "on" ? "Enforce eSIM only" : "Allow physical SIM"
         }
