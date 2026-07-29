@@ -148,7 +148,7 @@ export default function DeviceMap({ locations }: { locations: LocationPing[] }) 
   if (!locations || locations.length === 0) {
     return (
       <div className="h-[400px] grid place-items-center bg-rm-canvas border border-rm-line rounded-xl text-rm-slate text-sm">
-        No location data yet — issue a Locate command.
+        No location data yet, issue a Locate command.
       </div>
     );
   }

@@ -122,11 +122,11 @@ export default function DevicesPage() {
 
         {/* Stat row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-          <Stat label="Enrolled" value={devices ? devices.length : "—"} />
-          <Stat label="Online" value={devices ? onlineCount : "—"} accent />
+          <Stat label="Enrolled" value={devices ? devices.length : "…"} />
+          <Stat label="Online" value={devices ? onlineCount : "…"} accent />
           <Stat
             label="Offline"
-            value={devices ? devices.length - onlineCount : "—"}
+            value={devices ? devices.length - onlineCount : "…"}
           />
         </div>
 

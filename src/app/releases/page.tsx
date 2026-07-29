@@ -196,7 +196,7 @@ export default function ReleasesPage() {
           </span>{" "}
           gets the update.{" "}
           {pendingRollout?.mandatory
-            ? "It's mandatory — devices install it automatically."
+            ? "It's mandatory, devices install it automatically."
             : "Devices prompt the user to install or defer."}
         </p>
         <p className="text-rm-slate">

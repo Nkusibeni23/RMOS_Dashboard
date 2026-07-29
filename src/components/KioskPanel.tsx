@@ -120,7 +120,7 @@ export function KioskPanel({
       setApkUrl(url);
       setBusy("installing");
       await sendCommand(deviceId, "INSTALL_APK", { url });
-      toast.success(`${file.name} uploaded — installing on the device`);
+      toast.success(`${file.name} uploaded, installing on the device`);
       onDone?.();
       loadApks();
     } catch (err) {
@@ -389,15 +389,15 @@ function MiniBtn({
 function uploadErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 413)
-      return "File too large for the server — an admin needs to raise the upload limit";
+      return "File too large for the server, an admin needs to raise the upload limit";
     if (err.status === 401)
-      return "Session expired — sign out and back in, then retry";
+      return "Session expired, sign out and back in, then retry";
     if (err.status === 500)
-      return "Server couldn’t save the file — the uploads folder may be misconfigured";
+      return "Server couldn’t save the file, the uploads folder may be misconfigured";
     if (err.status === 0)
-      return "Upload interrupted — check your connection and retry";
+      return "Upload interrupted, check your connection and retry";
   }
-  return "Upload failed — make sure it’s a valid .apk and try again";
+  return "Upload failed, make sure it’s a valid .apk and try again";
 }
 
 function Group({
