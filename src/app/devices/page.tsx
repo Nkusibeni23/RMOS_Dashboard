@@ -11,6 +11,7 @@ import {
   listOwners,
 } from "@/lib/api";
 import type { Device, Owner } from "@/lib/types";
+import { ONLINE_WINDOW_MS } from "@/lib/types";
 import { TopBar } from "@/components/TopBar";
 import { StatusPill } from "@/components/StatusPill";
 import { useToast } from "@/components/Toast";
@@ -27,7 +28,8 @@ import {
 
 function isOnline(d: Device) {
   return (
-    !!d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < 120_000
+    !!d.lastSeenAt &&
+    Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_WINDOW_MS
   );
 }
 

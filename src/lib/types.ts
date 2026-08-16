@@ -1,3 +1,14 @@
+/**
+ * How long after its last heartbeat a device still counts as online.
+ *
+ * The agent beats every 60s, so the old 120s window tolerated exactly ONE missed beat — a Doze
+ * nap or a single dropped packet flipped a perfectly connected phone to "offline". Three beats
+ * of slack stops that flapping. The cost is that a genuinely dead phone takes ~3 min to show as
+ * offline, which is the better trade: commands queue and redeliver on reconnect either way, so
+ * this badge is operator information, not a delivery guarantee.
+ */
+export const ONLINE_WINDOW_MS = 180_000;
+
 export type Role = 'USER' | 'ADMIN' | 'SUPER';
 
 export type DeviceStatus = 'ACTIVE' | 'LOST' | 'WIPED' | 'UNENROLLED';
@@ -77,6 +88,12 @@ export interface LocationPing {
   altitudeM: number | null;
   speedMps: number | null;
   reportedAt: string;
+  /**
+   * When the device's provider actually produced the fix — as opposed to `reportedAt`, which is
+   * when the server received it. A sealed kiosk frequently reports a last-known fix that is hours
+   * old, so these can differ wildly. Null for pings from agents that predate the field.
+   */
+  fixedAt: string | null;
   source: string | null;
 }
 
