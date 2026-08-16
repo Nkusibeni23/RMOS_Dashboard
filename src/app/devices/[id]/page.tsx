@@ -13,7 +13,14 @@ import {
   listOwners,
   assignDevice,
 } from "@/lib/api";
-import type { CommandStatus, CommandType, Device, Owner } from "@/lib/types";
+import type {
+  CommandStatus,
+  CommandType,
+  Device,
+  LocationPing,
+  Owner,
+} from "@/lib/types";
+import { ONLINE_WINDOW_MS } from "@/lib/types";
 import { TopBar } from "@/components/TopBar";
 import { StatusPill } from "@/components/StatusPill";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -227,7 +234,7 @@ export default function DeviceDetailPage() {
 
   const online =
     !!device.lastSeenAt &&
-    Date.now() - new Date(device.lastSeenAt).getTime() < 120_000;
+    Date.now() - new Date(device.lastSeenAt).getTime() < ONLINE_WINDOW_MS;
 
   const queued = (device.commands ?? []).filter(
     (c) => !c.ackedAt && (c.status === "PENDING" || c.status === "SENT"),
@@ -493,6 +500,8 @@ export default function DeviceDetailPage() {
                           {device.locations[0].source
                             ? ` · ${device.locations[0].source}`
                             : ""}
+                          {" · "}
+                          <FixAge ping={device.locations[0]} />
                         </span>
                       ) : null}
                     </div>
@@ -873,6 +882,45 @@ function Field({
       <label className="text-sm text-rm-graphite">{label}</label>
       <div className="mt-1">{children}</div>
     </div>
+  );
+}
+
+/**
+ * Age of the FIX itself, which is not the same thing as when we heard about it.
+ *
+ * `reportedAt` is server receive-time. A sealed kiosk regularly reports `getLastKnownLocation()`,
+ * which can be hours old — so a stale position used to render with a fresh timestamp and look
+ * live. Chasing a stolen phone to where it used to be is the failure this guards against.
+ *
+ * `fixedAt` is null for agents that predate the field: say "age unknown" rather than assume it's
+ * current, since assuming is exactly the bug.
+ */
+function FixAge({ ping }: { ping: LocationPing }) {
+  if (!ping.fixedAt) {
+    return <span className="text-rm-warn">fix age unknown</span>;
+  }
+
+  const ageMs = Date.now() - new Date(ping.fixedAt).getTime();
+  const mins = Math.floor(ageMs / 60_000);
+
+  if (mins < 2) {
+    return <span className="text-rm-green-deep font-medium">fix live</span>;
+  }
+  if (mins < 15) {
+    return <span className="text-rm-slate">fix {mins}m old</span>;
+  }
+  if (mins < 60) {
+    return <span className="text-rm-warn">fix {mins}m old</span>;
+  }
+
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) {
+    return <span className="text-rm-warn font-medium">fix {hours}h old</span>;
+  }
+  return (
+    <span className="text-rm-danger font-medium">
+      fix {Math.floor(hours / 24)}d old
+    </span>
   );
 }
 
